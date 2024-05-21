@@ -7,7 +7,19 @@ import (
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
 
-var docStyle = lipgloss.NewStyle().Margin(1, 2)
+type Styles struct {
+	BorderColor lipgloss.Color
+	InputField  lipgloss.Style
+	List        lipgloss.Style
+}
+
+func DefaultStyles() *Styles {
+	s := new(Styles)
+	s.BorderColor = lipgloss.Color("36")
+	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(80)
+	s.List = lipgloss.NewStyle().Margin(1, 2)
+	return s
+}
 
 type Question struct {
 	question string
@@ -19,9 +31,9 @@ func newQuestion(q string) Question {
 	return Question{question: q}
 }
 
-func NewShortQuestion(q string) Question {
+func NewShortQuestion(q string, p string) Question {
 	question := newQuestion(q)
-	model := tui.NewShortAnswerField()
+	model := tui.NewShortAnswerField(p)
 	question.input = model
 	return question
 }
@@ -34,6 +46,9 @@ func NewLongQuestion(q string) Question {
 }
 
 type Model struct {
+	styles                        *Styles
+	width                         int
+	height                        int
 	list                          list.Model
 	optionChoosed                 bool
 	choice                        string
@@ -50,9 +65,9 @@ func NewModel() Model {
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	l.Title = "How would you like to authenticate?"
 
-	questions := []Question{NewShortQuestion("client id"), NewShortQuestion("client secret"), NewShortQuestion("tenant")}
+	questions := []Question{NewShortQuestion("client id", "Client ID"), NewShortQuestion("client secret", "Client Secret"), NewShortQuestion("tenant", "Your tenant domain")}
 
-	return Model{list: l, optionChoosed: false, choice: "", asMachineQuestions: questions, currentAsMachineQuestionIndex: 0}
+	return Model{list: l, optionChoosed: false, choice: "", asMachineQuestions: questions, currentAsMachineQuestionIndex: 0, styles: DefaultStyles()}
 
 }
 
@@ -92,7 +107,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		}
 	case tea.WindowSizeMsg:
-		h, v := docStyle.GetFrameSize()
+		m.width = msg.Width
+		m.height = msg.Height
+		h, v := m.styles.List.GetFrameSize()
 		m.list.SetSize(msg.Width-h, msg.Height-v)
 	}
 
@@ -108,9 +125,19 @@ func (m Model) View() string {
 			return "Done"
 		}
 		current := m.asMachineQuestions[m.currentAsMachineQuestionIndex]
-		return current.input.View()
+		return lipgloss.Place(
+			m.width,
+			m.height,
+			lipgloss.Top,
+			lipgloss.Left,
+			lipgloss.JoinVertical(
+				lipgloss.Left,
+				current.question,
+				m.styles.InputField.Render(current.input.View()),
+			),
+		)
 	}
-	return docStyle.Render(m.list.View())
+	return m.styles.List.Render(m.list.View())
 }
 
 func (m *Model) NextAsMachineQuestion() {

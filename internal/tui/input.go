@@ -23,11 +23,11 @@ type shortAnswerField struct {
 	textinput textinput.Model
 }
 
-func NewShortAnswerField() *shortAnswerField {
+func NewShortAnswerField(placeholder string) *shortAnswerField {
 	a := shortAnswerField{}
 
 	model := textinput.New()
-	model.Placeholder = "Your answer here"
+	model.Placeholder = placeholder
 	model.Focus()
 
 	a.textinput = model
