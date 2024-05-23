@@ -5,13 +5,29 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/shashimalcse/is-cli/internal/core"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
-const rootShort = "Build, manage and test your Identity Server integrations from the command line."
+const rootShort = `
+
+ _____    _            _   _ _           _____                          
+|_   _|  | |          | | (_) |         /  ___|                         
+  | |  __| | ___ _ __ | |_ _| |_ _   _  \ ` + "`" + `--.  ___ _ ____   _____ _ __ 
+  | | / _` + "`" + ` |/ _ \ '_ \| __| | __| | | |  ` + "`" + `--. \/ _ \ '__\ \ / / _ \ '__|
+ _| || (_| |  __/ | | | |_| | |_| |_| | /\__/ /  __/ |   \ V /  __/ |   
+|___/ \__,_|\___|_| |_|\__|_|\__|\__, | \____/ \___|_|    \_/ \___|_|   
+                                 __/  |                                 
+                                |____/                                  
+
+Build, manage and test your Identity Server integrations from the command line.								
+`
 
 func Execute() {
-	cli := &cli{}
+	cli := &core.CLI{
+		Logger: configLogger(),
+	}
 
 	cobra.EnableCommandSorting = false
 	rootCmd := buildRootCmd(cli)
@@ -24,7 +40,7 @@ func Execute() {
 	}
 }
 
-func buildRootCmd(cli *cli) *cobra.Command {
+func buildRootCmd(cli *core.CLI) *cobra.Command {
 
 	rootCommand := &cobra.Command{
 		Use:           "is",
@@ -40,7 +56,7 @@ func buildRootCmd(cli *cli) *cobra.Command {
 	return rootCommand
 }
 
-func addSubCommands(rootCmd *cobra.Command, cli *cli) {
+func addSubCommands(rootCmd *cobra.Command, cli *core.CLI) {
 
 	rootCmd.AddCommand(loginCmd(cli))
 }
@@ -58,4 +74,33 @@ func contextWithCancel() context.Context {
 	}()
 
 	return ctx
+}
+
+func configLogger() zap.Logger {
+
+	config := zap.NewProductionConfig()
+
+	// Set the log file path
+	logFilePath := "is-cli.log"
+
+	// Create a file to write logs to
+	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	// Set up the zap logger to write to the specified file
+	config.OutputPaths = []string{logFilePath}
+	config.ErrorOutputPaths = []string{logFilePath}
+
+	// Build the logger
+	logger, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync() // Flushes buffer, if any
+
+	logger.Info("This is an info message")
+	return *logger
 }

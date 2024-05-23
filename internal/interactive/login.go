@@ -1,9 +1,10 @@
-package login
+package interactive
 
 import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/shashimalcse/is-cli/internal/core"
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
 
@@ -55,13 +56,18 @@ type Model struct {
 	asMachineQuestions            []Question
 	currentAsMachineQuestionIndex int
 	asMachineQuestionsDone        bool
+	cli                           *core.CLI
+	status                        int
+	statusMessage                 string
 }
 
-func (m Model) Choice() string {
-	return *m.choice
+func (m Model) runLoginAsMachine() error {
+
+	err := core.RunLoginAsMachine(core.LoginInputs{ClientID: m.asMachineQuestions[0].answer, ClientSecret: m.asMachineQuestions[1].answer, Tenant: m.asMachineQuestions[2].answer}, m.cli)
+	return err
 }
 
-func NewModel(selectedLoginType *string) Model {
+func NewModel(cli *core.CLI, selectedLoginType *string) Model {
 	items := []list.Item{
 		tui.NewItem("As a machine", "Authenticates the IS CLI as a machine using client credentials"),
 		tui.NewItem("As a user", "Authenticates the IS CLI as a user using personal credentials"),
@@ -71,7 +77,7 @@ func NewModel(selectedLoginType *string) Model {
 
 	questions := []Question{NewShortQuestion("client id", "Client ID"), NewShortQuestion("client secret", "Client Secret"), NewShortQuestion("tenant", "Your tenant domain")}
 
-	return Model{list: l, optionChoosed: false, asMachineQuestions: questions, currentAsMachineQuestionIndex: 0, styles: DefaultStyles(), choice: selectedLoginType}
+	return Model{list: l, optionChoosed: false, asMachineQuestions: questions, currentAsMachineQuestionIndex: 0, styles: DefaultStyles(), choice: selectedLoginType, cli: cli, status: 0}
 
 }
 
@@ -97,12 +103,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					} else if i.Title() == "As a user" {
 						*m.choice = "As a user"
+						m.asMachineQuestionsDone = true
+
 					}
 					m.optionChoosed = true
 				}
 			} else {
 				if m.currentAsMachineQuestionIndex == len(m.asMachineQuestions)-1 {
 					m.asMachineQuestionsDone = true
+					current.answer = current.input.Value()
+					err := m.runLoginAsMachine()
+					if err != nil {
+						m.statusMessage = err.Error()
+						m.status = 2
+					} else {
+						m.status = 1
+					}
+					return m, nil
 				}
 				current.answer = current.input.Value()
 				m.NextAsMachineQuestion()
@@ -117,10 +134,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.SetSize(msg.Width-h, msg.Height-v)
 	}
 
-	if m.asMachineQuestionsDone {
-		return m, tea.Quit
-	}
-
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	current.input, cmd = current.input.Update(msg)
@@ -130,19 +143,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	if m.optionChoosed {
 		current := m.asMachineQuestions[m.currentAsMachineQuestionIndex]
-		return lipgloss.Place(
-			m.width,
-			m.height,
-			lipgloss.Top,
-			lipgloss.Left,
-			lipgloss.JoinVertical(
+		if !m.asMachineQuestionsDone {
+			return lipgloss.Place(
+				m.width,
+				m.height,
+				lipgloss.Top,
 				lipgloss.Left,
-				"Answer the following questions to authenticate as a machine",
-				m.styles.InputField.Render(current.input.View()),
-			),
-		)
+				lipgloss.JoinVertical(
+					lipgloss.Left,
+					"Answer the following questions to authenticate as a machine",
+					m.styles.InputField.Render(current.input.View()),
+				),
+			)
+		} else {
+			if m.status == 1 {
+				return "Authenticated as a machine"
+			} else if m.status == 2 {
+				return "Error authenticating as a machine - " + m.statusMessage
+			} else {
+				return "Authenticating as a machine..."
+			}
+		}
+	} else {
+		return m.styles.List.Render(m.list.View())
 	}
-	return m.styles.List.Render(m.list.View())
 }
 
 func (m *Model) NextAsMachineQuestion() {

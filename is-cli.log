@@ -1,0 +1,7 @@
+
+{"level":"info","ts":1716491121.346956,"caller":"cli/root.go:104","msg":"This is an info message"}
+{"level":"info","ts":1716491122.9968572,"caller":"interactive/login.go:66","msg":"Running login as machine - asdf - dsf - "}
+{"level":"info","ts":1716491254.541785,"caller":"cli/root.go:104","msg":"This is an info message"}
+{"level":"info","ts":1716491257.4257972,"caller":"core/login.go:22","msg":"Running login as machine - dsf - sdfsdf - "}
+{"level":"info","ts":1716491442.345046,"caller":"cli/root.go:104","msg":"This is an info message"}
+{"level":"info","ts":1716491453.869901,"caller":"core/login.go:22","msg":"Running login as machine - YuVg2vn72PeqRjDwXoP85PchOCYa - RKDtOrzHOgNfn0bO5LYNj8M9rsPECrbTc5cZnkulQOQa - carbon.super"}

@@ -2,28 +2,17 @@ package cli
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/shashimalcse/is-cli/internal/auth"
-	"github.com/shashimalcse/is-cli/internal/tui/login"
+	"github.com/shashimalcse/is-cli/internal/core"
+	"github.com/shashimalcse/is-cli/internal/interactive"
 	"github.com/spf13/cobra"
 )
 
-type LoginInputs struct {
-	ClientID     string
-	ClientSecret string
-	Tenant       string
-}
+func loginCmd(cli *core.CLI) *cobra.Command {
 
-func (i *LoginInputs) isLoggingInAsAMachine() bool {
-	return i.ClientID != "" || i.ClientSecret != "" || i.Tenant != ""
-}
-
-func loginCmd(cli *cli) *cobra.Command {
-
-	var inputs LoginInputs
+	var inputs core.LoginInputs
 	cmd := &cobra.Command{
 		Use:     "login",
 		Short:   "Authenticate the IS CLI",
@@ -31,26 +20,20 @@ func loginCmd(cli *cli) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			selectedLoginType := ""
-			shouldPrompt := !inputs.isLoggingInAsAMachine()
+			shouldPrompt := !inputs.IsLoggingInAsAMachine()
 			if shouldPrompt {
 
-				m := login.NewModel(&selectedLoginType)
+				m := interactive.NewModel(cli, &selectedLoginType)
 				p := tea.NewProgram(m, tea.WithAltScreen())
 
 				if _, err := p.Run(); err != nil {
 					fmt.Println("Error running program:", err)
 					os.Exit(1)
 				}
-			}
-
-			if selectedLoginType == "As a user" {
-				fmt.Println("Logging in as a user")
 			} else {
-				result, err := auth.GetAccessTokenFromClientCreds(http.DefaultClient, auth.ClientCredentials{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant})
-				if err != nil {
-					fmt.Println("Error logging in:", err)
+				if err := core.RunLoginAsMachine(core.LoginInputs{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant}, cli); err != nil {
+					return err
 				}
-				fmt.Println("Access Token:", result.AccessToken)
 			}
 			return nil
 		},
