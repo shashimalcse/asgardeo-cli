@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/shashimalcse/is-cli/internal/auth"
 	"github.com/shashimalcse/is-cli/internal/core"
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
@@ -59,12 +60,18 @@ type Model struct {
 	cli                           *core.CLI
 	status                        int
 	statusMessage                 string
+	deviceFlowState               auth.State
 }
 
 func (m Model) runLoginAsMachine() error {
 
 	err := core.RunLoginAsMachine(core.LoginInputs{ClientID: m.asMachineQuestions[0].answer, ClientSecret: m.asMachineQuestions[1].answer, Tenant: m.asMachineQuestions[2].answer}, m.cli)
 	return err
+}
+
+func (m Model) getDeviceCode() (auth.State, error) {
+
+	return core.GetDeviceCode(m.cli)
 }
 
 func NewModel(cli *core.CLI, selectedLoginType *string) Model {
@@ -109,21 +116,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.optionChoosed = true
 				}
 			} else {
-				if m.currentAsMachineQuestionIndex == len(m.asMachineQuestions)-1 {
-					m.asMachineQuestionsDone = true
-					current.answer = current.input.Value()
-					err := m.runLoginAsMachine()
+				if *m.choice == "As a user" {
+					state, err := m.getDeviceCode()
 					if err != nil {
 						m.statusMessage = err.Error()
-						m.status = 2
 					} else {
-						m.status = 1
+						m.deviceFlowState = state
+
 					}
-					return m, nil
+				} else {
+					if m.currentAsMachineQuestionIndex == len(m.asMachineQuestions)-1 {
+						m.asMachineQuestionsDone = true
+						current.answer = current.input.Value()
+						err := m.runLoginAsMachine()
+						if err != nil {
+							m.statusMessage = err.Error()
+							m.status = 2
+						} else {
+							m.status = 1
+						}
+						return m, nil
+					}
+					current.answer = current.input.Value()
+					m.NextAsMachineQuestion()
+					return m, current.input.Blur
 				}
-				current.answer = current.input.Value()
-				m.NextAsMachineQuestion()
-				return m, current.input.Blur
 			}
 
 		}

@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/shashimalcse/is-cli/internal/auth"
@@ -19,11 +18,18 @@ func (i *LoginInputs) IsLoggingInAsAMachine() bool {
 
 func RunLoginAsMachine(inputs LoginInputs, cli *CLI) error {
 
-	cli.Logger.Info("Running login as machine - " + inputs.ClientID + " - " + inputs.ClientSecret + " - " + inputs.Tenant)
-	result, err := auth.GetAccessTokenFromClientCreds(http.DefaultClient, auth.ClientCredentials{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant})
+	_, err := auth.GetAccessTokenFromClientCreds(http.DefaultClient, auth.ClientCredentials{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant})
 	if err != nil {
 		return err
 	}
-	fmt.Println("Access Token:", result.AccessToken)
 	return nil
+}
+
+func GetDeviceCode(cli *CLI) (auth.State, error) {
+
+	result, err := auth.GetDeviceCode(http.DefaultClient)
+	if err != nil {
+		return auth.State{}, err
+	}
+	return result, nil
 }

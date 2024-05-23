@@ -1,6 +1,6 @@
 package main
 
-import "github.com/shashimalcse/is-cli/internal/cli"
+import cli "github.com/shashimalcse/is-cli/internal/cmd"
 
 func main() {
 	cli.Execute()

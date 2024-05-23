@@ -22,6 +22,62 @@ type ClientCredentials struct {
 	Tenant       string
 }
 
+type State struct {
+	DeviceCode              string `json:"device_code"`
+	UserCode                string `json:"user_code"`
+	VerificationURIComplete string `json:"verification_uri_complete"`
+	VerificationURI         string `json:"verification_uri"`
+	ExpiresIn               int    `json:"expires_in"`
+	Interval                int    `json:"interval"`
+}
+
+type Credentials struct {
+	ClientID string
+	Tenant   string
+}
+
+var credentials = &Credentials{
+	ClientID: "Wkwv5_jmo2DJVoul3bW7qve46C4a",
+	Tenant:   "carbon.super",
+}
+
+func GetDeviceCode(httpClient *http.Client) (State, error) {
+
+	httpClient.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	a := credentials
+
+	data := url.Values{
+		"client_id": {a.ClientID},
+		"scope":     {"SYSTEM"},
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://localhost:9443/t/%s/oauth2/device_authorize", a.Tenant), strings.NewReader(data.Encode()))
+	if err != nil {
+		return State{}, err
+	}
+
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return State{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return State{}, fmt.Errorf("failed to get device code: %s", resp.Status)
+
+	}
+	defer resp.Body.Close()
+	var result State
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return State{}, err
+	}
+	return result, nil
+}
+
 func GetAccessTokenFromClientCreds(httpClient *http.Client, args ClientCredentials) (Result, error) {
 
 	httpClient.Transport = &http.Transport{
@@ -30,6 +86,7 @@ func GetAccessTokenFromClientCreds(httpClient *http.Client, args ClientCredentia
 
 	data := url.Values{
 		"grant_type": {"client_credentials"},
+		"scope":      {"SYSTEM"},
 	}
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("https://localhost:9443/t/%s/oauth2/token", args.Tenant), strings.NewReader(data.Encode()))
