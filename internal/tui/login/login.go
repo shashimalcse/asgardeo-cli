@@ -51,13 +51,17 @@ type Model struct {
 	height                        int
 	list                          list.Model
 	optionChoosed                 bool
-	choice                        string
+	choice                        *string
 	asMachineQuestions            []Question
 	currentAsMachineQuestionIndex int
 	asMachineQuestionsDone        bool
 }
 
-func NewModel() Model {
+func (m Model) Choice() string {
+	return *m.choice
+}
+
+func NewModel(selectedLoginType *string) Model {
 	items := []list.Item{
 		tui.NewItem("As a machine", "Authenticates the IS CLI as a machine using client credentials"),
 		tui.NewItem("As a user", "Authenticates the IS CLI as a user using personal credentials"),
@@ -67,7 +71,7 @@ func NewModel() Model {
 
 	questions := []Question{NewShortQuestion("client id", "Client ID"), NewShortQuestion("client secret", "Client Secret"), NewShortQuestion("tenant", "Your tenant domain")}
 
-	return Model{list: l, optionChoosed: false, choice: "", asMachineQuestions: questions, currentAsMachineQuestionIndex: 0, styles: DefaultStyles()}
+	return Model{list: l, optionChoosed: false, asMachineQuestions: questions, currentAsMachineQuestionIndex: 0, styles: DefaultStyles(), choice: selectedLoginType}
 
 }
 
@@ -89,10 +93,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				i, ok := m.list.SelectedItem().(tui.Item)
 				if ok {
 					if i.Title() == "As a machine" {
-						m.choice = "As a machine"
+						*m.choice = "As a machine"
 
 					} else if i.Title() == "As a user" {
-						m.choice = "As a user"
+						*m.choice = "As a user"
 					}
 					m.optionChoosed = true
 				}
@@ -113,6 +117,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.SetSize(msg.Width-h, msg.Height-v)
 	}
 
+	if m.asMachineQuestionsDone {
+		return m, tea.Quit
+	}
+
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	current.input, cmd = current.input.Update(msg)
@@ -121,9 +129,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	if m.optionChoosed {
-		if m.asMachineQuestionsDone {
-			return "Done"
-		}
 		current := m.asMachineQuestions[m.currentAsMachineQuestionIndex]
 		return lipgloss.Place(
 			m.width,
@@ -132,7 +137,7 @@ func (m Model) View() string {
 			lipgloss.Left,
 			lipgloss.JoinVertical(
 				lipgloss.Left,
-				current.question,
+				"Answer the following questions to authenticate as a machine",
 				m.styles.InputField.Render(current.input.View()),
 			),
 		)
