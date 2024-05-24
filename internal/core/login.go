@@ -28,7 +28,6 @@ func RunLoginAsMachine(inputs LoginInputs, cli *CLI) error {
 func GetDeviceCode(cli *CLI) (auth.State, error) {
 
 	result, err := auth.GetDeviceCode(http.DefaultClient)
-	cli.Logger.Info("Device code: " + result.DeviceCode)
 	if err != nil {
 		return auth.State{}, err
 	}

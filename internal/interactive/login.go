@@ -1,9 +1,13 @@
 package interactive
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/pkg/browser"
 	"github.com/shashimalcse/is-cli/internal/auth"
 	"github.com/shashimalcse/is-cli/internal/core"
 	"github.com/shashimalcse/is-cli/internal/tui"
@@ -26,15 +30,21 @@ func DefaultStyles() *Styles {
 type AuthenticateState int
 
 const (
-	NotStarted          AuthenticateState = 0
-	InProgress          AuthenticateState = 1
-	Completed           AuthenticateState = 2
-	Error               AuthenticateState = 3
-	DeviceFlowInitiated AuthenticateState = 4
+	NotStarted                 AuthenticateState = 0
+	InProgress                 AuthenticateState = 1
+	Completed                  AuthenticateState = 2
+	Error                      AuthenticateState = 3
+	DeviceFlowInitiated        AuthenticateState = 4
+	DeviceCodeReceived         AuthenticateState = 5
+	DeviceFlowError            AuthenticateState = 6
+	DeviceFlowBroswerWait      AuthenticateState = 7
+	DeviceFlowBroswerCompleted AuthenticateState = 8
+	DeviceFlowBroswerError     AuthenticateState = 9
 )
 
 type Model struct {
 	styles                             *Styles
+	spinner                            spinner.Model
 	width                              int
 	height                             int
 	optionsList                        list.Model
@@ -84,8 +94,12 @@ func NewModel(cli *core.CLI) Model {
 	// Create a list of questions to ask the user when authenticating as a user
 	questionsForLoginAsUser := []tui.Question{tui.NewQuestion("client id", "Client ID", tui.ShortQuestion), tui.NewQuestion("tenant", "Your tenant domain", tui.ShortQuestion)}
 
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	return Model{
 		styles:                             DefaultStyles(),
+		spinner:                            s,
 		optionsList:                        l,
 		isOptionChoosed:                    false,
 		questionsForLoginAsMachine:         questionsForLoginAsMachine,
@@ -99,7 +113,7 @@ func NewModel(cli *core.CLI) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -121,21 +135,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else {
 				if m.optionChoosed == "As a user" {
-					if m.currentLoginAsUserQuestionIndex == len(m.questionsForLoginAsUser)-1 {
-						m.loginAsUserQuestionsDone = true
-						currentLoginAsUserQuestion.Answer = currentLoginAsUserQuestion.Input.Value()
-						state, err := m.getDeviceCode()
-						if err != nil {
-							m.statusMessage = err.Error()
-						} else {
-							m.deviceFlowState = state
-
-						}
+					if m.status == DeviceFlowBroswerWait {
+						m.status = DeviceFlowBroswerCompleted
 					} else {
-						m.NextLoginAsUserQuestion()
+						if m.currentLoginAsUserQuestionIndex == len(m.questionsForLoginAsUser)-1 {
+							m.loginAsUserQuestionsDone = true
+							currentLoginAsUserQuestion.Answer = currentLoginAsUserQuestion.Input.Value()
+							m.status = DeviceFlowInitiated
+							state, err := m.getDeviceCode()
+							if err != nil {
+								m.status = DeviceFlowError
+								m.statusMessage = err.Error()
+							} else {
+								m.cli.Logger.Info("Device code: " + state.DeviceCode)
+								m.status = DeviceCodeReceived
+								if err = browser.OpenURL(state.VerificationURIComplete); err != nil {
+									m.status = DeviceFlowBroswerError
+								}
+								m.deviceFlowState = state
+								m.status = DeviceFlowBroswerWait
+							}
+						} else {
+							m.NextLoginAsUserQuestion()
+						}
+						currentLoginAsUserQuestion.Answer = currentLoginAsUserQuestion.Input.Value()
+						return m, currentLoginAsUserQuestion.Input.Blur
 					}
-					currentLoginAsUserQuestion.Answer = currentLoginAsUserQuestion.Input.Value()
-					return m, currentLoginAsUserQuestion.Input.Blur
 				} else {
 					if m.currentLoginAsMachineQuestionIndex == len(m.questionsForLoginAsMachine)-1 {
 						m.loginAsMachineQuestionsDone = true
@@ -169,6 +194,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.optionsList, cmd = m.optionsList.Update(msg)
 	currentLoginAsMachineQuestion.Input, cmd = currentLoginAsMachineQuestion.Input.Update(msg)
 	currentLoginAsUserQuestion.Input, cmd = currentLoginAsUserQuestion.Input.Update(msg)
+	m.spinner, cmd = m.spinner.Update(msg)
 	return m, cmd
 }
 
@@ -185,6 +211,16 @@ func (m Model) View() string {
 					return "Error authenticating as a machine - " + m.statusMessage
 				} else if m.status == InProgress {
 					return "Authenticating as a user..."
+				} else if m.status == DeviceFlowInitiated {
+					return "Device flow initiated."
+				} else if m.status == DeviceFlowBroswerWait {
+					return fmt.Sprintf("\n\n   %s Waiting for the login to complete in the browser. Please press Enter after login completed!\n\n", m.spinner.View())
+				} else if m.status == DeviceFlowBroswerCompleted {
+					return "Device flow completed."
+				} else if m.status == DeviceFlowBroswerError {
+					return "Error opening browser. Please visit " + m.deviceFlowState.VerificationURIComplete + " to authenticate."
+				} else if m.status == DeviceFlowError {
+					return "Error initiating device flow - " + m.statusMessage
 				}
 				return ""
 			}

@@ -51,7 +51,6 @@ func GetDeviceCode(httpClient *http.Client) (State, error) {
 
 	data := url.Values{
 		"client_id": {a.ClientID},
-		"scope":     {"SYSTEM"},
 	}
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("https://localhost:9443/t/%s/oauth2/device_authorize", a.Tenant), strings.NewReader(data.Encode()))
