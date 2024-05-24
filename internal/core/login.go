@@ -34,7 +34,7 @@ func GetDeviceCode(cli *CLI) (auth.State, error) {
 	return result, nil
 }
 
-func GetAccessTokenFromDeviceCode(cli *CLI, state auth.State)  error {
+func GetAccessTokenFromDeviceCode(cli *CLI, state auth.State) error {
 
 	_, err := auth.GetAccessTokenFromDeviceCode(http.DefaultClient, state)
 	if err != nil {

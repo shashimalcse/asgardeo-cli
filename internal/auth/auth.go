@@ -102,6 +102,9 @@ func GetAccessTokenFromDeviceCode(httpClient *http.Client, state State) (Result,
 	if err != nil {
 		return Result{}, err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return Result{}, fmt.Errorf("failed to get access token: %s", resp.Status)
+	}
 	defer resp.Body.Close()
 	var result Result
 	err = json.NewDecoder(resp.Body).Decode(&result)

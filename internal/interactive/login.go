@@ -27,20 +27,21 @@ func DefaultStyles() *Styles {
 	return s
 }
 
+// AuthenticateState represents the state of the authentication process for both machine and user
 type AuthenticateState int
 
 const (
-	NotStarted                 AuthenticateState = 0
-	InProgress                 AuthenticateState = 1
-	Completed                  AuthenticateState = 2
-	Error                      AuthenticateState = 3
-	DeviceFlowInitiated        AuthenticateState = 4
-	DeviceCodeReceived         AuthenticateState = 5
-	DeviceFlowError            AuthenticateState = 6
-	DeviceFlowBroswerWait      AuthenticateState = 7
-	DeviceFlowBroswerCompleted AuthenticateState = 8
-	DeviceFlowBroswerError     AuthenticateState = 9
-	DeviceFlowCompleted        AuthenticateState = 10
+	NotStarted                  AuthenticateState = 0
+	ClientCredentialsInProgress AuthenticateState = 1
+	ClientCredentialsCompleted  AuthenticateState = 2
+	ClientCredentialsError      AuthenticateState = 3
+	DeviceFlowInitiated         AuthenticateState = 4
+	DeviceFlowCodeReceived      AuthenticateState = 5
+	DeviceFlowError             AuthenticateState = 6
+	DeviceFlowBroswerWait       AuthenticateState = 7
+	DeviceFlowBroswerCompleted  AuthenticateState = 8
+	DeviceFlowBroswerError      AuthenticateState = 9
+	DeviceFlowCompleted         AuthenticateState = 10
 )
 
 type Model struct {
@@ -149,6 +150,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							m.statusMessage = err.Error()
 						} else {
 							m.status = DeviceFlowCompleted
+							return m, tea.Quit
 						}
 					} else {
 						if m.currentLoginAsUserQuestionIndex == len(m.questionsForLoginAsUser)-1 {
@@ -160,8 +162,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 								m.status = DeviceFlowError
 								m.statusMessage = err.Error()
 							} else {
-								m.cli.Logger.Info("Device code: " + state.DeviceCode)
-								m.status = DeviceCodeReceived
+								m.status = DeviceFlowCodeReceived
 								if err = browser.OpenURL(state.VerificationURIComplete); err != nil {
 									m.status = DeviceFlowBroswerError
 								}
@@ -178,13 +179,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.currentLoginAsMachineQuestionIndex == len(m.questionsForLoginAsMachine)-1 {
 						m.loginAsMachineQuestionsDone = true
 						currentLoginAsMachineQuestion.Answer = currentLoginAsMachineQuestion.Input.Value()
-						m.status = InProgress
+						m.status = ClientCredentialsInProgress
 						err := m.runLoginAsMachine()
 						if err != nil {
 							m.statusMessage = err.Error()
-							m.status = Error
+							m.status = ClientCredentialsError
 						} else {
-							m.status = Completed
+							m.status = ClientCredentialsCompleted
 						}
 						return m, nil
 					} else {
@@ -204,9 +205,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.optionsList, cmd = m.optionsList.Update(msg)
-	currentLoginAsMachineQuestion.Input, cmd = currentLoginAsMachineQuestion.Input.Update(msg)
-	currentLoginAsUserQuestion.Input, cmd = currentLoginAsUserQuestion.Input.Update(msg)
+	m.optionsList, _ = m.optionsList.Update(msg)
+	currentLoginAsMachineQuestion.Input, _ = currentLoginAsMachineQuestion.Input.Update(msg)
+	currentLoginAsUserQuestion.Input, _ = currentLoginAsUserQuestion.Input.Update(msg)
 	m.spinner, cmd = m.spinner.Update(msg)
 	return m, cmd
 }
@@ -218,11 +219,11 @@ func (m Model) View() string {
 			if !m.loginAsUserQuestionsDone {
 				return current.Input.View()
 			} else {
-				if m.status == Completed {
+				if m.status == ClientCredentialsCompleted {
 					return "Authenticated"
-				} else if m.status == Error {
+				} else if m.status == ClientCredentialsError {
 					return "Error authenticating as a machine - " + m.statusMessage
-				} else if m.status == InProgress {
+				} else if m.status == ClientCredentialsInProgress {
 					return "Authenticating as a user..."
 				} else if m.status == DeviceFlowInitiated {
 					return "Device flow initiated."
@@ -244,11 +245,11 @@ func (m Model) View() string {
 			if !m.loginAsMachineQuestionsDone {
 				return current.Input.View()
 			} else {
-				if m.status == Completed {
+				if m.status == ClientCredentialsCompleted {
 					return "Successfully authenticated as a machine"
-				} else if m.status == Error {
+				} else if m.status == ClientCredentialsError {
 					return "Error authenticating as a machine - " + m.statusMessage
-				} else if m.status == InProgress {
+				} else if m.status == ClientCredentialsInProgress {
 					return "Authenticating as a machine..."
 				}
 				return ""

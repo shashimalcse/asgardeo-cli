@@ -28,6 +28,8 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 				if _, err := p.Run(); err != nil {
 					fmt.Println("Error running program:", err)
 					os.Exit(1)
+				} else {
+
 				}
 			} else {
 				if err := core.RunLoginAsMachine(core.LoginInputs{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant}, cli); err != nil {
