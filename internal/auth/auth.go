@@ -11,9 +11,10 @@ import (
 )
 
 type Result struct {
-	TokenType   string `json:"token_type"`
-	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 type ClientCredentials struct {
@@ -73,6 +74,39 @@ func GetDeviceCode(httpClient *http.Client) (State, error) {
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return State{}, err
+	}
+	return result, nil
+}
+
+func GetAccessTokenFromDeviceCode(httpClient *http.Client, state State) (Result, error) {
+
+	httpClient.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	data := url.Values{
+		"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},
+		"client_id":   {credentials.ClientID},
+		"device_code": {state.DeviceCode},
+		"scope":       {"SYSTEM"},
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://localhost:9443/t/%s/oauth2/token", credentials.Tenant), strings.NewReader(data.Encode()))
+	if err != nil {
+		return Result{}, err
+	}
+
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return Result{}, err
+	}
+	defer resp.Body.Close()
+	var result Result
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return Result{}, err
 	}
 	return result, nil
 }

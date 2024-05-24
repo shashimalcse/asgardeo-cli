@@ -40,6 +40,7 @@ const (
 	DeviceFlowBroswerWait      AuthenticateState = 7
 	DeviceFlowBroswerCompleted AuthenticateState = 8
 	DeviceFlowBroswerError     AuthenticateState = 9
+	DeviceFlowCompleted        AuthenticateState = 10
 )
 
 type Model struct {
@@ -76,6 +77,11 @@ func (m Model) runLoginAsMachine() error {
 func (m Model) getDeviceCode() (auth.State, error) {
 
 	return core.GetDeviceCode(m.cli)
+}
+
+func (m Model) getAccessTokenFromDeviceCode(state auth.State) error {
+
+	return core.GetAccessTokenFromDeviceCode(m.cli, state)
 }
 
 func NewModel(cli *core.CLI) Model {
@@ -137,6 +143,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.optionChoosed == "As a user" {
 					if m.status == DeviceFlowBroswerWait {
 						m.status = DeviceFlowBroswerCompleted
+						err := m.getAccessTokenFromDeviceCode(m.deviceFlowState)
+						if err != nil {
+							m.status = DeviceFlowError
+							m.statusMessage = err.Error()
+						} else {
+							m.status = DeviceFlowCompleted
+						}
 					} else {
 						if m.currentLoginAsUserQuestionIndex == len(m.questionsForLoginAsUser)-1 {
 							m.loginAsUserQuestionsDone = true
@@ -219,6 +232,8 @@ func (m Model) View() string {
 					return "Device flow completed."
 				} else if m.status == DeviceFlowBroswerError {
 					return "Error opening browser. Please visit " + m.deviceFlowState.VerificationURIComplete + " to authenticate."
+				} else if m.status == DeviceFlowCompleted {
+					return "Successfully logged in"
 				} else if m.status == DeviceFlowError {
 					return "Error initiating device flow - " + m.statusMessage
 				}
@@ -230,7 +245,7 @@ func (m Model) View() string {
 				return current.Input.View()
 			} else {
 				if m.status == Completed {
-					return "Authenticated as a machine"
+					return "Successfully authenticated as a machine"
 				} else if m.status == Error {
 					return "Error authenticating as a machine - " + m.statusMessage
 				} else if m.status == InProgress {
