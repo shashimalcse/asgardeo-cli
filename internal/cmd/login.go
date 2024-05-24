@@ -19,11 +19,10 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 		Example: "is login",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			selectedLoginType := ""
 			shouldPrompt := !inputs.IsLoggingInAsAMachine()
 			if shouldPrompt {
 
-				m := interactive.NewModel(cli, &selectedLoginType)
+				m := interactive.NewModel(cli)
 				p := tea.NewProgram(m, tea.WithAltScreen())
 
 				if _, err := p.Run(); err != nil {

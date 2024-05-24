@@ -101,6 +101,5 @@ func configLogger() zap.Logger {
 	}
 	defer logger.Sync() // Flushes buffer, if any
 
-	logger.Info("This is an info message")
 	return *logger
 }

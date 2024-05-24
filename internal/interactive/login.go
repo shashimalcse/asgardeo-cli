@@ -23,49 +23,43 @@ func DefaultStyles() *Styles {
 	return s
 }
 
-type Question struct {
-	question string
-	answer   string
-	input    tui.Input
-}
+type AuthenticateState int
 
-func newQuestion(q string) Question {
-	return Question{question: q}
-}
-
-func NewShortQuestion(q string, p string) Question {
-	question := newQuestion(q)
-	model := tui.NewShortAnswerField(p)
-	question.input = model
-	return question
-}
-
-func NewLongQuestion(q string) Question {
-	question := newQuestion(q)
-	model := tui.NewLongAnswerField()
-	question.input = model
-	return question
-}
+const (
+	NotStarted          AuthenticateState = 0
+	InProgress          AuthenticateState = 1
+	Completed           AuthenticateState = 2
+	Error               AuthenticateState = 3
+	DeviceFlowInitiated AuthenticateState = 4
+)
 
 type Model struct {
-	styles                        *Styles
-	width                         int
-	height                        int
-	list                          list.Model
-	optionChoosed                 bool
-	choice                        *string
-	asMachineQuestions            []Question
-	currentAsMachineQuestionIndex int
-	asMachineQuestionsDone        bool
-	cli                           *core.CLI
-	status                        int
-	statusMessage                 string
-	deviceFlowState               auth.State
+	styles                             *Styles
+	width                              int
+	height                             int
+	optionsList                        list.Model
+	isOptionChoosed                    bool
+	optionChoosed                      string
+	questionsForLoginAsMachine         []tui.Question
+	currentLoginAsMachineQuestionIndex int
+	loginAsMachineQuestionsDone        bool
+	questionsForLoginAsUser            []tui.Question
+	currentLoginAsUserQuestionIndex    int
+	loginAsUserQuestionsDone           bool
+	cli                                *core.CLI
+	status                             AuthenticateState
+	statusMessage                      string
+	deviceFlowState                    auth.State
 }
 
 func (m Model) runLoginAsMachine() error {
 
-	err := core.RunLoginAsMachine(core.LoginInputs{ClientID: m.asMachineQuestions[0].answer, ClientSecret: m.asMachineQuestions[1].answer, Tenant: m.asMachineQuestions[2].answer}, m.cli)
+	err := core.RunLoginAsMachine(
+		core.LoginInputs{
+			ClientID:     m.questionsForLoginAsMachine[0].Answer,
+			ClientSecret: m.questionsForLoginAsMachine[1].Answer,
+			Tenant:       m.questionsForLoginAsMachine[2].Answer,
+		}, m.cli)
 	return err
 }
 
@@ -74,7 +68,9 @@ func (m Model) getDeviceCode() (auth.State, error) {
 	return core.GetDeviceCode(m.cli)
 }
 
-func NewModel(cli *core.CLI, selectedLoginType *string) Model {
+func NewModel(cli *core.CLI) Model {
+
+	// Create a list of items for the user to choose from to authenticate
 	items := []list.Item{
 		tui.NewItem("As a machine", "Authenticates the IS CLI as a machine using client credentials"),
 		tui.NewItem("As a user", "Authenticates the IS CLI as a user using personal credentials"),
@@ -82,9 +78,23 @@ func NewModel(cli *core.CLI, selectedLoginType *string) Model {
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	l.Title = "How would you like to authenticate?"
 
-	questions := []Question{NewShortQuestion("client id", "Client ID"), NewShortQuestion("client secret", "Client Secret"), NewShortQuestion("tenant", "Your tenant domain")}
+	// Create a list of questions to ask the user when authenticating as a machine
+	questionsForLoginAsMachine := []tui.Question{tui.NewQuestion("client id", "Client ID", tui.ShortQuestion), tui.NewQuestion("client secret", "Client Secret", tui.ShortQuestion), tui.NewQuestion("tenant", "Your tenant domain", tui.ShortQuestion)}
 
-	return Model{list: l, optionChoosed: false, asMachineQuestions: questions, currentAsMachineQuestionIndex: 0, styles: DefaultStyles(), choice: selectedLoginType, cli: cli, status: 0}
+	// Create a list of questions to ask the user when authenticating as a user
+	questionsForLoginAsUser := []tui.Question{tui.NewQuestion("client id", "Client ID", tui.ShortQuestion), tui.NewQuestion("tenant", "Your tenant domain", tui.ShortQuestion)}
+
+	return Model{
+		styles:                             DefaultStyles(),
+		optionsList:                        l,
+		isOptionChoosed:                    false,
+		questionsForLoginAsMachine:         questionsForLoginAsMachine,
+		questionsForLoginAsUser:            questionsForLoginAsUser,
+		currentLoginAsMachineQuestionIndex: 0,
+		currentLoginAsUserQuestionIndex:    0,
+		optionChoosed:                      "",
+		cli:                                cli,
+		status:                             NotStarted}
 
 }
 
@@ -94,7 +104,8 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
-	current := &m.asMachineQuestions[m.currentAsMachineQuestionIndex]
+	currentLoginAsMachineQuestion := &m.questionsForLoginAsMachine[m.currentLoginAsMachineQuestionIndex]
+	currentLoginAsUserQuestion := &m.questionsForLoginAsUser[m.currentLoginAsUserQuestionIndex]
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
@@ -102,44 +113,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "enter":
-			if !m.optionChoosed {
-				i, ok := m.list.SelectedItem().(tui.Item)
+			if !m.isOptionChoosed {
+				i, ok := m.optionsList.SelectedItem().(tui.Item)
 				if ok {
-					if i.Title() == "As a machine" {
-						*m.choice = "As a machine"
-
-					} else if i.Title() == "As a user" {
-						*m.choice = "As a user"
-						m.asMachineQuestionsDone = true
-
-					}
-					m.optionChoosed = true
+					m.optionChoosed = i.Title()
+					m.isOptionChoosed = true
 				}
 			} else {
-				if *m.choice == "As a user" {
-					state, err := m.getDeviceCode()
-					if err != nil {
-						m.statusMessage = err.Error()
-					} else {
-						m.deviceFlowState = state
+				if m.optionChoosed == "As a user" {
+					if m.currentLoginAsUserQuestionIndex == len(m.questionsForLoginAsUser)-1 {
+						m.loginAsUserQuestionsDone = true
+						currentLoginAsUserQuestion.Answer = currentLoginAsUserQuestion.Input.Value()
+						state, err := m.getDeviceCode()
+						if err != nil {
+							m.statusMessage = err.Error()
+						} else {
+							m.deviceFlowState = state
 
+						}
+					} else {
+						m.NextLoginAsUserQuestion()
 					}
+					currentLoginAsUserQuestion.Answer = currentLoginAsUserQuestion.Input.Value()
+					return m, currentLoginAsUserQuestion.Input.Blur
 				} else {
-					if m.currentAsMachineQuestionIndex == len(m.asMachineQuestions)-1 {
-						m.asMachineQuestionsDone = true
-						current.answer = current.input.Value()
+					if m.currentLoginAsMachineQuestionIndex == len(m.questionsForLoginAsMachine)-1 {
+						m.loginAsMachineQuestionsDone = true
+						currentLoginAsMachineQuestion.Answer = currentLoginAsMachineQuestion.Input.Value()
+						m.status = InProgress
 						err := m.runLoginAsMachine()
 						if err != nil {
 							m.statusMessage = err.Error()
-							m.status = 2
+							m.status = Error
 						} else {
-							m.status = 1
+							m.status = Completed
 						}
 						return m, nil
+					} else {
+						m.NextLoginAsMachineQuestion()
 					}
-					current.answer = current.input.Value()
-					m.NextAsMachineQuestion()
-					return m, current.input.Blur
+					currentLoginAsMachineQuestion.Answer = currentLoginAsMachineQuestion.Input.Value()
+					return m, currentLoginAsMachineQuestion.Input.Blur
 				}
 			}
 
@@ -148,48 +162,65 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		h, v := m.styles.List.GetFrameSize()
-		m.list.SetSize(msg.Width-h, msg.Height-v)
+		m.optionsList.SetSize(msg.Width-h, msg.Height-v)
 	}
 
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	current.input, cmd = current.input.Update(msg)
+	m.optionsList, cmd = m.optionsList.Update(msg)
+	currentLoginAsMachineQuestion.Input, cmd = currentLoginAsMachineQuestion.Input.Update(msg)
+	currentLoginAsUserQuestion.Input, cmd = currentLoginAsUserQuestion.Input.Update(msg)
 	return m, cmd
 }
 
 func (m Model) View() string {
-	if m.optionChoosed {
-		current := m.asMachineQuestions[m.currentAsMachineQuestionIndex]
-		if !m.asMachineQuestionsDone {
-			return lipgloss.Place(
-				m.width,
-				m.height,
-				lipgloss.Top,
-				lipgloss.Left,
-				lipgloss.JoinVertical(
-					lipgloss.Left,
-					"Answer the following questions to authenticate as a machine",
-					m.styles.InputField.Render(current.input.View()),
-				),
-			)
-		} else {
-			if m.status == 1 {
-				return "Authenticated as a machine"
-			} else if m.status == 2 {
-				return "Error authenticating as a machine - " + m.statusMessage
+	if m.isOptionChoosed {
+		if m.optionChoosed == "As a user" {
+			current := m.questionsForLoginAsUser[m.currentLoginAsUserQuestionIndex]
+			if !m.loginAsUserQuestionsDone {
+				return current.Input.View()
 			} else {
-				return "Authenticating as a machine..."
+				if m.status == Completed {
+					return "Authenticated"
+				} else if m.status == Error {
+					return "Error authenticating as a machine - " + m.statusMessage
+				} else if m.status == InProgress {
+					return "Authenticating as a user..."
+				}
+				return ""
+			}
+		} else {
+			current := m.questionsForLoginAsMachine[m.currentLoginAsMachineQuestionIndex]
+			if !m.loginAsMachineQuestionsDone {
+				return current.Input.View()
+			} else {
+				if m.status == Completed {
+					return "Authenticated as a machine"
+				} else if m.status == Error {
+					return "Error authenticating as a machine - " + m.statusMessage
+				} else if m.status == InProgress {
+					return "Authenticating as a machine..."
+				}
+				return ""
 			}
 		}
+
 	} else {
-		return m.styles.List.Render(m.list.View())
+		return m.styles.List.Render(m.optionsList.View())
 	}
 }
 
-func (m *Model) NextAsMachineQuestion() {
-	if m.currentAsMachineQuestionIndex < len(m.asMachineQuestions)-1 {
-		m.currentAsMachineQuestionIndex++
+func (m *Model) NextLoginAsUserQuestion() {
+	if m.currentLoginAsUserQuestionIndex < len(m.questionsForLoginAsMachine)-1 {
+		m.currentLoginAsUserQuestionIndex++
 	} else {
-		m.currentAsMachineQuestionIndex = 0
+		m.currentLoginAsUserQuestionIndex = 0
+	}
+}
+
+func (m *Model) NextLoginAsMachineQuestion() {
+	if m.currentLoginAsMachineQuestionIndex < len(m.questionsForLoginAsMachine)-1 {
+		m.currentLoginAsMachineQuestionIndex++
+	} else {
+		m.currentLoginAsMachineQuestionIndex = 0
 	}
 }
