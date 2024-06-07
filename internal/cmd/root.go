@@ -1,7 +1,8 @@
-package cli
+package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 
@@ -35,7 +36,7 @@ func Execute() {
 
 	cancelCtx := contextWithCancel()
 	if err := rootCmd.ExecuteContext(cancelCtx); err != nil {
-
+		fmt.Println(err)
 		os.Exit(1) // nolint:gocritic
 	}
 }
@@ -50,6 +51,13 @@ func buildRootCmd(cli *core.CLI) *cobra.Command {
 		Long:          rootShort,
 		Version:       "v0.0.1",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if !commandRequiresAuthentication(cmd.CommandPath()) {
+				return nil
+			}
+			if err := cli.SetupWithAuthentication(cmd.Context()); err != nil {
+				fmt.Println(err)
+				return err
+			}
 			return nil
 		},
 	}
@@ -59,6 +67,21 @@ func buildRootCmd(cli *core.CLI) *cobra.Command {
 func addSubCommands(rootCmd *cobra.Command, cli *core.CLI) {
 
 	rootCmd.AddCommand(loginCmd(cli))
+	rootCmd.AddCommand(applicationsCmd(cli))
+}
+
+func commandRequiresAuthentication(invokedCommandName string) bool {
+	commandsWithNoAuthRequired := []string{
+		"is login",
+	}
+
+	for _, cmd := range commandsWithNoAuthRequired {
+		if cmd == invokedCommandName {
+			return false
+		}
+	}
+
+	return true
 }
 
 func contextWithCancel() context.Context {
@@ -81,7 +104,7 @@ func configLogger() zap.Logger {
 	config := zap.NewProductionConfig()
 
 	// Set the log file path
-	logFilePath := "is-cli.log"
+	logFilePath := "/Users/thilinashashimalsenarath/Documents/my_projects/is-cli/.logs/is-cli.log"
 
 	// Create a file to write logs to
 	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

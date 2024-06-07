@@ -1,4 +1,4 @@
-package cli
+package cmd
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 			shouldPrompt := !inputs.IsLoggingInAsAMachine()
 			if shouldPrompt {
 
-				m := interactive.NewModel(cli)
+				m := interactive.NewLoginModel(cli)
 				p := tea.NewProgram(m, tea.WithAltScreen())
 
 				if _, err := p.Run(); err != nil {

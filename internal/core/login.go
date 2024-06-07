@@ -29,7 +29,8 @@ func RunLoginAsMachine(inputs LoginInputs, cli *CLI) error {
 		// In case we don't have a keyring, we want the
 		// access token to be saved in the config file.
 	}
-	cli.Config.DefaultTenant = tenant
+	err = cli.Config.AddTenant(tenant)
+	cli.Config.DefaultTenant = tenant.Name
 	return nil
 }
 
@@ -53,6 +54,7 @@ func GetAccessTokenFromDeviceCode(cli *CLI, state auth.State) error {
 		// In case we don't have a keyring, we want the
 		// access token to be saved in the config file.
 	}
-	cli.Config.DefaultTenant = tenant
+	err = cli.Config.AddTenant(tenant)
+	cli.Config.DefaultTenant = tenant.Name
 	return nil
 }

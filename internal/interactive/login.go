@@ -13,20 +13,6 @@ import (
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
 
-type Styles struct {
-	BorderColor lipgloss.Color
-	InputField  lipgloss.Style
-	List        lipgloss.Style
-}
-
-func DefaultStyles() *Styles {
-	s := new(Styles)
-	s.BorderColor = lipgloss.Color("36")
-	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(80)
-	s.List = lipgloss.NewStyle().Margin(1, 2)
-	return s
-}
-
 // AuthenticateState represents the state of the authentication process for both machine and user
 type AuthenticateState int
 
@@ -44,8 +30,8 @@ const (
 	DeviceFlowCompleted         AuthenticateState = 10
 )
 
-type Model struct {
-	styles                             *Styles
+type LoginModel struct {
+	styles                             *tui.Styles
 	spinner                            spinner.Model
 	width                              int
 	height                             int
@@ -64,7 +50,7 @@ type Model struct {
 	deviceFlowState                    auth.State
 }
 
-func (m Model) runLoginAsMachine() error {
+func (m LoginModel) runLoginAsMachine() error {
 
 	err := core.RunLoginAsMachine(
 		core.LoginInputs{
@@ -75,17 +61,17 @@ func (m Model) runLoginAsMachine() error {
 	return err
 }
 
-func (m Model) getDeviceCode() (auth.State, error) {
+func (m LoginModel) getDeviceCode() (auth.State, error) {
 
 	return core.GetDeviceCode(m.cli)
 }
 
-func (m Model) getAccessTokenFromDeviceCode(state auth.State) error {
+func (m LoginModel) getAccessTokenFromDeviceCode(state auth.State) error {
 
 	return core.GetAccessTokenFromDeviceCode(m.cli, state)
 }
 
-func NewModel(cli *core.CLI) Model {
+func NewLoginModel(cli *core.CLI) LoginModel {
 
 	// Create a list of items for the user to choose from to authenticate
 	items := []list.Item{
@@ -104,8 +90,8 @@ func NewModel(cli *core.CLI) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	return Model{
-		styles:                             DefaultStyles(),
+	return LoginModel{
+		styles:                             tui.DefaultStyles(),
 		spinner:                            s,
 		optionsList:                        l,
 		isOptionChoosed:                    false,
@@ -119,11 +105,11 @@ func NewModel(cli *core.CLI) Model {
 
 }
 
-func (m Model) Init() tea.Cmd {
+func (m LoginModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	currentLoginAsMachineQuestion := &m.questionsForLoginAsMachine[m.currentLoginAsMachineQuestionIndex]
 	currentLoginAsUserQuestion := &m.questionsForLoginAsUser[m.currentLoginAsUserQuestionIndex]
@@ -212,7 +198,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Model) View() string {
+func (m LoginModel) View() string {
 	if m.isOptionChoosed {
 		if m.optionChoosed == "As a user" {
 			current := m.questionsForLoginAsUser[m.currentLoginAsUserQuestionIndex]
@@ -261,7 +247,7 @@ func (m Model) View() string {
 	}
 }
 
-func (m *Model) NextLoginAsUserQuestion() {
+func (m *LoginModel) NextLoginAsUserQuestion() {
 	if m.currentLoginAsUserQuestionIndex < len(m.questionsForLoginAsMachine)-1 {
 		m.currentLoginAsUserQuestionIndex++
 	} else {
@@ -269,7 +255,7 @@ func (m *Model) NextLoginAsUserQuestion() {
 	}
 }
 
-func (m *Model) NextLoginAsMachineQuestion() {
+func (m *LoginModel) NextLoginAsMachineQuestion() {
 	if m.currentLoginAsMachineQuestionIndex < len(m.questionsForLoginAsMachine)-1 {
 		m.currentLoginAsMachineQuestionIndex++
 	} else {
