@@ -67,12 +67,14 @@ func buildRootCmd(cli *core.CLI) *cobra.Command {
 func addSubCommands(rootCmd *cobra.Command, cli *core.CLI) {
 
 	rootCmd.AddCommand(loginCmd(cli))
+	rootCmd.AddCommand(logoutCmd(cli))
 	rootCmd.AddCommand(applicationsCmd(cli))
 }
 
 func commandRequiresAuthentication(invokedCommandName string) bool {
 	commandsWithNoAuthRequired := []string{
 		"is login",
+		"is logout",
 	}
 
 	for _, cmd := range commandsWithNoAuthRequired {

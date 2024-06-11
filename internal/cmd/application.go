@@ -17,7 +17,7 @@ func applicationsCmd(cli *core.CLI) *cobra.Command {
 	}
 
 	cmd.AddCommand(listApplicationsCmd(cli))
-
+	cmd.AddCommand(createApplicationsCmd(cli))
 	return cmd
 }
 
@@ -31,7 +31,34 @@ func listApplicationsCmd(cli *core.CLI) *cobra.Command {
   is applications ls`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			m := interactive.NewApplicationModel(cli)
+			m := interactive.NewApplicationListModel(cli)
+			p := tea.NewProgram(m, tea.WithAltScreen())
+
+			if _, err := p.Run(); err != nil {
+				fmt.Println("Error running program:", err)
+				os.Exit(1)
+			} else {
+
+			}
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func createApplicationsCmd(cli *core.CLI) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "create",
+		Aliases: []string{"c"},
+		Args:    cobra.NoArgs,
+		Short:   "Create an application",
+		Example: `is applications create
+  is applications c`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			m := interactive.NewApplicationCreateModel(cli)
 			p := tea.NewProgram(m, tea.WithAltScreen())
 
 			if _, err := p.Run(); err != nil {

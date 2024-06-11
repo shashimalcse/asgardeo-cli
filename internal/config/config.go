@@ -91,6 +91,37 @@ func (c *Config) AddTenant(tenant Tenant) error {
 	return c.saveToDisk()
 }
 
+func (c *Config) RemoveTenant(tenant string) error {
+	if err := c.Initialize(); err != nil {
+		if errors.Is(err, ErrConfigFileMissing) {
+			return nil
+		}
+		return err
+	}
+
+	if c.DefaultTenant == "" && len(c.Tenants) == 0 {
+		return nil
+	}
+
+	if c.DefaultTenant != "" && len(c.Tenants) == 0 {
+		c.DefaultTenant = ""
+		return c.saveToDisk()
+	}
+
+	delete(c.Tenants, tenant)
+
+	if c.DefaultTenant == tenant {
+		c.DefaultTenant = ""
+
+		for otherTenant := range c.Tenants {
+			c.DefaultTenant = otherTenant
+			break
+		}
+	}
+
+	return c.saveToDisk()
+}
+
 func (c *Config) SetDefaultTenant(tenantName string) error {
 	tenant, err := c.GetTenant(tenantName)
 	if err != nil {
