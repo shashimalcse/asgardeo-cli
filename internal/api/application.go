@@ -10,4 +10,5 @@ type ApplicationAPI interface {
 
 	// List all applications.
 	List(ctx context.Context) (c *management.ApplicationList, err error)
+	
 }
