@@ -117,7 +117,9 @@ const (
 	ApplicationCreateInitiated ApplicationCreateState = iota
 	ApplicationCreateTypeSelected
 	ApplicationCreateQuestionsCompleted
-	ApplicationCreateFetchingError
+	ApplicationCreateCreatingInProgress
+	ApplicationCreateCreatingCompleted
+	ApplicationCreateError
 )
 
 type ApplicationType string
@@ -176,6 +178,70 @@ func NewApplicationCreateModel(cli *core.CLI) ApplicationCreateModel {
 
 }
 
+func (m ApplicationCreateModel) createApplications() error {
+
+	if m.applicationType == SinglePage {
+		application := management.Application{
+			Name:       m.questionsForSinglePage[0].Answer,
+			TemplateID: "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",
+			AdvancedConfig: management.AdvancedConfigurations{
+				DiscoverableByEndUsers: false,
+				SkipLoginConsent:       true,
+				SkipLogoutConsent:      true,
+			},
+			AssociatedRoles: management.AssociatedRoles{
+				AllowedAudience: "APPLICATION",
+				Roles:           []management.AssociatedRole{},
+			},
+			AuthenticationSeq: management.AuthenticationSequence{
+				Type: "DEFAULT",
+				Steps: []management.Step{{
+					ID: 1,
+					Options: []management.Options{
+						{IDP: "LOCAL", Authenticator: "basic"},
+					},
+				},
+				},
+			},
+			ClaimConfiguration: management.ClaimConfiguration{
+				Dialect: "LOCAL",
+				RequestedClaims: []interface{}{
+					map[string]interface{}{
+						"claim": map[string]interface{}{"uri": "http://wso2.org/claims/username"},
+					},
+				},
+			},
+			InboundProtocolConfiguration: management.InboundProtocolConfiguration{
+				OIDC: management.OIDC{
+					AccessToken: management.AccessToken{
+						ApplicationAccessTokenExpiryInSeconds: 3600,
+						BindingType:                           "sso-session",
+						RevokeTokensWhenIDPSessionTerminated:  true,
+						Type:                                  "Default",
+						UserAccessTokenExpiryInSeconds:        3600,
+						ValidateTokenBinding:                  false,
+					},
+					AllowedOrigins: []string{m.questionsForSinglePage[1].Answer},
+					CallbackURLs:   []string{m.questionsForSinglePage[1].Answer},
+					GrantTypes:     []string{"authorization_code", "refresh_token"},
+					PKCE: management.PKCE{
+						Mandatory:                      true,
+						SupportPlainTransformAlgorithm: false,
+					},
+					PublicClient: true,
+					RefreshToken: management.RefreshToken{
+						ExpiryInSeconds:   86400,
+						RenewRefreshToken: true,
+					},
+				},
+			},
+		}
+		_, err := m.cli.API.Application.Create(context.Background(), application)
+		return err
+	}
+	return nil
+}
+
 func (m ApplicationCreateModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
@@ -202,7 +268,15 @@ func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					currentSinglePageQuestion := &m.questionsForSinglePage[m.currentSinglePageQuestionIndex]
 					currentSinglePageQuestion.Answer = currentSinglePageQuestion.Input.Value()
 					if m.currentSinglePageQuestionIndex == len(m.questionsForSinglePage)-1 {
-						m.state = ApplicationCreateQuestionsCompleted
+						// m.state = ApplicationCreateQuestionsCompleted
+						m.state = ApplicationCreateCreatingInProgress
+						err := m.createApplications()
+						if err != nil {
+							m.state = ApplicationCreateError
+							m.stateError = err
+						} else {
+							m.state = ApplicationCreateCreatingCompleted
+						}
 					} else {
 						m.NextSinglePageQuestion()
 					}
@@ -244,13 +318,19 @@ func (m ApplicationCreateModel) View() string {
 			return "Other types are not supported yet!"
 		}
 
-	case ApplicationCreateQuestionsCompleted:
-		var previousQAs string
-		for i := 0; i < len(m.questionsForSinglePage); i++ {
-			question := m.questionsForSinglePage[i]
-			previousQAs += fmt.Sprintf("%s : %s\n", question.Question, question.Answer)
-		}
-		return previousQAs
+	// case ApplicationCreateQuestionsCompleted:
+	// 	var previousQAs string
+	// 	for i := 0; i < len(m.questionsForSinglePage); i++ {
+	// 		question := m.questionsForSinglePage[i]
+	// 		previousQAs += fmt.Sprintf("%s : %s\n", question.Question, question.Answer)
+	// 	}
+	// 	return previousQAs
+	case ApplicationCreateCreatingInProgress:
+		return fmt.Sprintf("\n\n   %s Creating application...!\n\n", m.spinner.View())
+	case ApplicationCreateCreatingCompleted:
+		return "Application created successfully!"
+	case ApplicationCreateError:
+		return fmt.Sprint(m.stateError.Error())
 	}
 
 	return ""

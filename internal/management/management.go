@@ -20,16 +20,16 @@ type manager struct {
 
 func New(tenantDomain string, accessToken string) (*Management, error) {
 
-	tenantDomain = "https://localhost:9443/t/" + tenantDomain
-
-	u, err := url.Parse(tenantDomain)
+	server := "https://api.asgardeo.io/"
+	basePath := "t/" + tenantDomain + "/api/server/v1"
+	u, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
 	m := &Management{
 		url:      u,
-		basePath: "api/server/v1",
+		basePath: basePath,
 		http: &http.Client{
 			Transport: &transport{
 				underlyingTransport: &http.Transport{

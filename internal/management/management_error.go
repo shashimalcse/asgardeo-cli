@@ -7,9 +7,10 @@ import (
 )
 
 type managementError struct {
-	StatusCode int    `json:"statusCode"`
-	Err        string `json:"error"`
-	Message    string `json:"message"`
+	StatusCode  int    `json:"statusCode"`
+	Err         string `json:"error"`
+	Message     string `json:"message"`
+	Description string `json:"description"`
 }
 
 func (m *managementError) Error() string {

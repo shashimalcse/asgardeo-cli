@@ -3,21 +3,22 @@ package management
 import "context"
 
 type Application struct {
-	ID                 string                     `json:"id"`
-	Name               string                     `json:"name"`
-	LogoutReturnURL    string                     `json:"logoutReturnUrl,omitempty"`
-	ClientID           string                     `json:"clientId"`
-	Issuer             string                     `json:"issuer,omitempty"`
-	Realm              string                     `json:"realm,omitempty"`
-	TemplateID         string                     `json:"templateId"`
-	IsManagementApp    bool                       `json:"isManagementApp,omitempty"`
-	AssociatedRoles    AssociatedRoles            `json:"associatedRoles,omitempty"`
-	ClaimConfiguration ClaimConfiguration         `json:"claimConfiguration,omitempty"`
-	InboundProtocols   []InboundProtocol          `json:"inboundProtocols,omitempty"`
-	AuthenticationSeq  AuthenticationSequence     `json:"authenticationSequence,omitempty"`
-	AdvancedConfig     AdvancedConfigurations     `json:"advancedConfigurations,omitempty"`
-	ProvisioningConfig ProvisioningConfigurations `json:"provisioningConfigurations,omitempty"`
-	Access             string                     `json:"access,omitempty"`
+	ID                           string                       `json:"id,omitempty"`
+	Name                         string                       `json:"name,omitempty"`
+	LogoutReturnURL              string                       `json:"logoutReturnUrl,omitempty"`
+	ClientID                     string                       `json:"clientId,omitempty"`
+	Issuer                       string                       `json:"issuer,omitempty"`
+	Realm                        string                       `json:"realm,omitempty"`
+	TemplateID                   string                       `json:"templateId,omitempty"`
+	IsManagementApp              bool                         `json:"isManagementApp,omitempty"`
+	AssociatedRoles              AssociatedRoles              `json:"associatedRoles,omitempty"`
+	ClaimConfiguration           ClaimConfiguration           `json:"claimConfiguration,omitempty"`
+	InboundProtocols             []InboundProtocol            `json:"inboundProtocols,omitempty"`
+	InboundProtocolConfiguration InboundProtocolConfiguration `json:"inboundProtocolConfiguration,omitempty"`
+	AuthenticationSeq            AuthenticationSequence       `json:"authenticationSequence,omitempty"`
+	AdvancedConfig               AdvancedConfigurations       `json:"advancedConfigurations,omitempty"`
+	ProvisioningConfig           ProvisioningConfigurations   `json:"provisioningConfigurations,omitempty"`
+	Access                       string                       `json:"access,omitempty"`
 }
 
 type ApplicationList struct {
@@ -75,6 +76,39 @@ type InboundProtocol struct {
 	Self string `json:"self"`
 }
 
+type InboundProtocolConfiguration struct {
+	OIDC OIDC `json:"oidc"`
+}
+
+type OIDC struct {
+	AccessToken    AccessToken  `json:"accessToken"`
+	GrantTypes     []string     `json:"grantTypes"`
+	AllowedOrigins []string     `json:"allowedOrigins"`
+	CallbackURLs   []string     `json:"callbackURLs"`
+	PKCE           PKCE         `json:"pkce"`
+	PublicClient   bool         `json:"publicClient"`
+	RefreshToken   RefreshToken `json:"refreshToken"`
+}
+
+type PKCE struct {
+	Mandatory                      bool `json:"mandatory"`
+	SupportPlainTransformAlgorithm bool `json:"supportPlainTransformAlgorithm"`
+}
+
+type RefreshToken struct {
+	ExpiryInSeconds   int  `json:"expiryInSeconds"`
+	RenewRefreshToken bool `json:"renewRefreshToken"`
+}
+
+type AccessToken struct {
+	ApplicationAccessTokenExpiryInSeconds int    `json:"applicationAccessTokenExpiryInSeconds"`
+	BindingType                           string `json:"bindingType"`
+	RevokeTokensWhenIDPSessionTerminated  bool   `json:"revokeTokensWhenIDPSessionTerminated"`
+	Type                                  string `json:"type"`
+	UserAccessTokenExpiryInSeconds        int    `json:"userAccessTokenExpiryInSeconds"`
+	ValidateTokenBinding                  bool   `json:"validateTokenBinding"`
+}
+
 type AuthenticationSequence struct {
 	Type                      string        `json:"type"`
 	Steps                     []Step        `json:"steps"`
@@ -125,5 +159,10 @@ type ProvisioningConfigurations struct {
 
 func (m *ApplicationManager) List(ctx context.Context) (a *ApplicationList, err error) {
 	err = m.management.Request(ctx, "GET", m.management.URI("applications"), &a)
+	return
+}
+
+func (m *ApplicationManager) Create(ctx context.Context, application Application) (a *Application, err error) {
+	err = m.management.Request(ctx, "POST", m.management.URI("applications"), application)
 	return
 }

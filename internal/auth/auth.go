@@ -54,7 +54,7 @@ func GetDeviceCode(httpClient *http.Client) (State, error) {
 		"client_id": {a.ClientID},
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("https://localhost:9443/t/%s/oauth2/device_authorize", a.Tenant), strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.asgardeo.io/t/%s/oauth2/device_authorize", a.Tenant), strings.NewReader(data.Encode()))
 	if err != nil {
 		return State{}, err
 	}
@@ -91,7 +91,7 @@ func GetAccessTokenFromDeviceCode(httpClient *http.Client, state State) (Result,
 		"scope":       {"SYSTEM"},
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("https://localhost:9443/t/%s/oauth2/token", credentials.Tenant), strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.asgardeo.io/t/%s/oauth2/token", credentials.Tenant), strings.NewReader(data.Encode()))
 	if err != nil {
 		return Result{}, err
 	}
@@ -125,7 +125,7 @@ func GetAccessTokenFromClientCreds(httpClient *http.Client, args ClientCredentia
 		"scope":      {"SYSTEM"},
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("https://localhost:9443/t/%s/oauth2/token", args.Tenant), strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.asgardeo.io/t/%s/oauth2/token", args.Tenant), strings.NewReader(data.Encode()))
 	if err != nil {
 		return Result{}, err
 	}
