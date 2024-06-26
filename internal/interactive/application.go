@@ -142,6 +142,7 @@ type ApplicationCreateModel struct {
 	stateError                     error
 	applicationTypesList           list.Model
 	questionsForSinglePage         []tui.Question
+	confirmationQuestion           tui.Question
 	currentSinglePageQuestionIndex int
 	applicationType                ApplicationType
 }
@@ -163,6 +164,8 @@ func NewApplicationCreateModel(cli *core.CLI) ApplicationCreateModel {
 		tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
 	}
 
+	confirmationQuestion := tui.NewQuestion("Are you sure you want to create the application? (y/n)", "(y/n)", tui.ShortQuestion)
+
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
@@ -173,6 +176,7 @@ func NewApplicationCreateModel(cli *core.CLI) ApplicationCreateModel {
 		state:                          ApplicationCreateInitiated,
 		applicationTypesList:           applicationTypesList,
 		questionsForSinglePage:         questionsForSinglePage,
+		confirmationQuestion:           confirmationQuestion,
 		currentSinglePageQuestionIndex: 0,
 	}
 
@@ -268,19 +272,25 @@ func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					currentSinglePageQuestion := &m.questionsForSinglePage[m.currentSinglePageQuestionIndex]
 					currentSinglePageQuestion.Answer = currentSinglePageQuestion.Input.Value()
 					if m.currentSinglePageQuestionIndex == len(m.questionsForSinglePage)-1 {
-						// m.state = ApplicationCreateQuestionsCompleted
-						m.state = ApplicationCreateCreatingInProgress
-						err := m.createApplications()
-						if err != nil {
-							m.state = ApplicationCreateError
-							m.stateError = err
-						} else {
-							m.state = ApplicationCreateCreatingCompleted
-						}
+						m.state = ApplicationCreateQuestionsCompleted
 					} else {
 						m.NextSinglePageQuestion()
 					}
 					return m, currentSinglePageQuestion.Input.Blur
+				}
+			case ApplicationCreateQuestionsCompleted:
+				m.confirmationQuestion.Answer = m.confirmationQuestion.Input.Value()
+				if (m.confirmationQuestion.Answer == "y") || (m.confirmationQuestion.Answer == "Y" || m.confirmationQuestion.Answer == "") {
+					m.state = ApplicationCreateCreatingInProgress
+					err := m.createApplications()
+					if err != nil {
+						m.state = ApplicationCreateError
+						m.stateError = err
+					} else {
+						m.state = ApplicationCreateCreatingCompleted
+					}
+				} else {
+					return m, tea.Quit
 				}
 			}
 
@@ -295,6 +305,7 @@ func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.applicationTypesList, _ = m.applicationTypesList.Update(msg)
 	currentSinglePageQuestion.Input, _ = currentSinglePageQuestion.Input.Update(msg)
+	m.confirmationQuestion.Input, _ = m.confirmationQuestion.Input.Update(msg)
 	m.spinner, cmd = m.spinner.Update(msg)
 	return m, cmd
 }
@@ -318,13 +329,13 @@ func (m ApplicationCreateModel) View() string {
 			return "Other types are not supported yet!"
 		}
 
-	// case ApplicationCreateQuestionsCompleted:
-	// 	var previousQAs string
-	// 	for i := 0; i < len(m.questionsForSinglePage); i++ {
-	// 		question := m.questionsForSinglePage[i]
-	// 		previousQAs += fmt.Sprintf("%s : %s\n", question.Question, question.Answer)
-	// 	}
-	// 	return previousQAs
+	case ApplicationCreateQuestionsCompleted:
+		var previousQAs string
+		for i := 0; i < len(m.questionsForSinglePage); i++ {
+			question := m.questionsForSinglePage[i]
+			previousQAs += fmt.Sprintf("%s : %s\n", question.Question, question.Answer)
+		}
+		return previousQAs + m.confirmationQuestion.Question + m.confirmationQuestion.Input.View()
 	case ApplicationCreateCreatingInProgress:
 		return fmt.Sprintf("\n\n   %s Creating application...!\n\n", m.spinner.View())
 	case ApplicationCreateCreatingCompleted:

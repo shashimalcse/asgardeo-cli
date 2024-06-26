@@ -51,8 +51,6 @@ func GetAccessTokenFromDeviceCode(cli *CLI, state auth.State) error {
 	}
 	tenant := config.Tenant{Name: "carbon.super", ClientID: "Wkwv5_jmo2DJVoul3bW7qve46C4a", AccessToken: result.AccessToken}
 	if err := keyring.StoreAccessToken("carbon.super", result.AccessToken); err != nil {
-		// In case we don't have a keyring, we want the
-		// access token to be saved in the config file.
 	}
 	err = cli.Config.AddTenant(tenant)
 	cli.Config.DefaultTenant = tenant.Name
