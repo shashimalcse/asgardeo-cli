@@ -34,6 +34,19 @@ func NewShortAnswerField(placeholder string) *shortAnswerField {
 	return &a
 }
 
+func NewShortAnswerFieldForSecrets(placeholder string) *shortAnswerField {
+	a := shortAnswerField{}
+
+	model := textinput.New()
+	model.Placeholder = placeholder
+	model.EchoMode = textinput.EchoPassword
+	model.EchoCharacter = '•'
+	model.Focus()
+
+	a.textinput = model
+	return &a
+}
+
 func (a *shortAnswerField) Blink() tea.Msg {
 	return textinput.Blink()
 }

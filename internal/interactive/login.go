@@ -82,7 +82,7 @@ func NewLoginModel(cli *core.CLI) LoginModel {
 	l.Title = "How would you like to authenticate?"
 
 	// Create a list of questions to ask the user when authenticating as a machine
-	questionsForLoginAsMachine := []tui.Question{tui.NewQuestion("client id", "Client ID", tui.ShortQuestion), tui.NewQuestion("client secret", "Client Secret", tui.ShortQuestion), tui.NewQuestion("tenant", "Your tenant domain", tui.ShortQuestion)}
+	questionsForLoginAsMachine := []tui.Question{tui.NewQuestion("client id", "Client ID", tui.ShortQuestion), tui.NewQuestion("client secret", "Client Secret", tui.ShortSecreatQuestion), tui.NewQuestion("tenant", "Your tenant domain", tui.ShortQuestion)}
 
 	// Create a list of questions to ask the user when authenticating as a user
 	questionsForLoginAsUser := []tui.Question{tui.NewQuestion("client id", "Client ID", tui.ShortQuestion), tui.NewQuestion("tenant", "Your tenant domain", tui.ShortQuestion)}
