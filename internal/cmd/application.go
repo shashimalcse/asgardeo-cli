@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shashimalcse/is-cli/internal/core"
-	"github.com/shashimalcse/is-cli/internal/interactive"
+	interactive "github.com/shashimalcse/is-cli/internal/interactive/application"
 	"github.com/spf13/cobra"
 )
 
@@ -61,13 +61,14 @@ func createApplicationsCmd(cli *core.CLI) *cobra.Command {
 			m := interactive.NewApplicationCreateModel(cli)
 			p := tea.NewProgram(m, tea.WithAltScreen())
 
-			if _, err := p.Run(); err != nil {
-				fmt.Println("Error running program:", err)
+			m1, err := p.Run()
+			if err != nil {
+				fmt.Println("Oh no:", err)
 				os.Exit(1)
-			} else {
-
 			}
-
+			if m2, ok := m1.(interactive.ApplicationCreateModel); ok && m2.Value() != "" {
+				fmt.Print(m2.Value())
+			}
 			return nil
 		},
 	}

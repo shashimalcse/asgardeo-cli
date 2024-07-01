@@ -13,102 +13,6 @@ import (
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
 
-// Application List Interactive
-type ApplicationListState int
-
-const (
-	ApplicationListFetchingNotStarted ApplicationListState = iota
-	ApplicationListFetchingInProgress
-	ApplicationListFetchingCompleted
-	ApplicationListFetchingError
-)
-
-type ApplicationListModel struct {
-	styles     *tui.Styles
-	spinner    spinner.Model
-	width      int
-	height     int
-	cli        *core.CLI
-	state      ApplicationListState
-	stateError error
-	list       list.Model
-}
-
-func NewApplicationListModel(cli *core.CLI) ApplicationListModel {
-
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	return ApplicationListModel{
-		styles:  tui.DefaultStyles(),
-		spinner: s,
-		cli:     cli,
-		state:   ApplicationListFetchingInProgress,
-	}
-
-}
-
-func (m ApplicationListModel) fetchApplications() tea.Cmd {
-	return func() tea.Msg {
-		list, err := m.cli.API.Application.List(context.Background())
-		if err != nil {
-			m.state = ApplicationListFetchingError
-			return err
-		}
-		return list
-	}
-}
-
-func (m ApplicationListModel) Init() tea.Cmd {
-	return tea.Batch(m.fetchApplications(), m.spinner.Tick)
-}
-
-func (m ApplicationListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.Type == tea.KeyCtrlC {
-			return m, tea.Quit
-		}
-	case *management.ApplicationList:
-		applications := []list.Item{}
-		for _, app := range msg.Applications {
-			applications = append(applications, tui.NewItem(app.Name, app.ID))
-		}
-		m.list = list.New(applications, list.NewDefaultDelegate(), 0, 0)
-		h, v := m.styles.List.GetFrameSize()
-		m.list.SetSize(m.width-h, m.height-v)
-		m.state = ApplicationListFetchingCompleted
-		return m, nil
-	case error:
-		m.state = ApplicationListFetchingError
-		m.stateError = msg
-		return m, nil
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-	}
-
-	var cmd tea.Cmd
-	if m.state == ApplicationListFetchingCompleted {
-		m.list, _ = m.list.Update(msg)
-	}
-	m.spinner, cmd = m.spinner.Update(msg)
-	return m, cmd
-}
-
-func (m ApplicationListModel) View() string {
-	switch m.state {
-	case ApplicationListFetchingInProgress:
-		return fmt.Sprintf("\n\n   %s Fetching applications...!\n\n", m.spinner.View())
-	case ApplicationListFetchingCompleted:
-		return m.styles.List.Render(m.list.View())
-	case ApplicationListFetchingError:
-		return fmt.Sprint(m.stateError.Error())
-	}
-	return ""
-}
-
 // Application Create Interactive
 
 type ApplicationCreateState int
@@ -145,6 +49,7 @@ type ApplicationCreateModel struct {
 	confirmationQuestion           tui.Question
 	currentSinglePageQuestionIndex int
 	applicationType                ApplicationType
+	output                         string
 }
 
 func NewApplicationCreateModel(cli *core.CLI) ApplicationCreateModel {
@@ -273,6 +178,7 @@ func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					currentSinglePageQuestion.Answer = currentSinglePageQuestion.Input.Value()
 					if m.currentSinglePageQuestionIndex == len(m.questionsForSinglePage)-1 {
 						m.state = ApplicationCreateQuestionsCompleted
+						m.confirmationQuestion.Input.SetValue("")
 					} else {
 						m.NextSinglePageQuestion()
 					}
@@ -286,10 +192,13 @@ func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if err != nil {
 						m.state = ApplicationCreateError
 						m.stateError = err
+						m.output = "Error creating application!"
 					} else {
 						m.state = ApplicationCreateCreatingCompleted
+						m.output = "Application created successfully!"
 					}
 				} else {
+					m.output = "Application creation cancelled."
 					return m, tea.Quit
 				}
 			}
@@ -335,7 +244,7 @@ func (m ApplicationCreateModel) View() string {
 			question := m.questionsForSinglePage[i]
 			previousQAs += fmt.Sprintf("%s : %s\n", question.Question, question.Answer)
 		}
-		return previousQAs + m.confirmationQuestion.Question + m.confirmationQuestion.Input.View()
+		return previousQAs + m.confirmationQuestion.Question + "\n" + m.confirmationQuestion.Input.View()
 	case ApplicationCreateCreatingInProgress:
 		return fmt.Sprintf("\n\n   %s Creating application...!\n\n", m.spinner.View())
 	case ApplicationCreateCreatingCompleted:
@@ -345,6 +254,10 @@ func (m ApplicationCreateModel) View() string {
 	}
 
 	return ""
+}
+
+func (m ApplicationCreateModel) Value() string {
+	return fmt.Sprint(m.output)
 }
 
 func (m *ApplicationCreateModel) NextSinglePageQuestion() {
