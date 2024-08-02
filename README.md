@@ -3,7 +3,7 @@
 is-cli is a command-line interface tool for managing and interacting with Identity Server/Asgardeo integrations.
 
 ## Features
-- Authenticate as a machine or user
+- Authenticate as a machine (Client Credentials) or User (Device Flow)
 - Manage applications (only list, create yet)
 - Interactive mode
 - Keychain support for storing credentials
@@ -59,6 +59,9 @@ is-cli login
 is-cli applications list
 is-cli applications create
 ```
+
+![Screenshot 2024-08-02 at 15 41 42](https://github.com/user-attachments/assets/c76a1b8e-740a-4ad7-a014-1a880b5a4f16)
+![Screenshot 2024-08-02 at 15 43 22](https://github.com/user-attachments/assets/ebc9f872-65c7-4609-bd7f-926af2bac076)
 
 ## Contributing
 
