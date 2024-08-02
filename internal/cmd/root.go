@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 
+	"github.com/shashimalcse/is-cli/internal/config"
 	"github.com/shashimalcse/is-cli/internal/core"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -22,27 +24,31 @@ const rootShort = `
                                  __/  |                                 
                                 |____/                                  
 
-Build, manage and test your Identity Server integrations from the command line.								
+Build, manage and test your Identity Server/Asgardeo integrations from the command line.								
 `
 
 func Execute() {
-	cli := &core.CLI{
-		Logger: configLogger(),
+	cfg := config.NewConfig()
+	logger, err := configLogger()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing logger: %v\n", err)
+		os.Exit(1)
 	}
-
-	cobra.EnableCommandSorting = false
+	defer logger.Sync()
+	cli := core.NewCLI(cfg, logger)
 	rootCmd := buildRootCmd(cli)
 	addSubCommands(rootCmd, cli)
-
-	cancelCtx := contextWithCancel()
-	if err := rootCmd.ExecuteContext(cancelCtx); err != nil {
-		fmt.Println(err)
-		os.Exit(1) // nolint:gocritic
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go handleSignals(cancel)
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		logger.Error("Command execution failed", zap.Error(err))
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 }
 
 func buildRootCmd(cli *core.CLI) *cobra.Command {
-
 	rootCommand := &cobra.Command{
 		Use:           "is",
 		SilenceUsage:  true,
@@ -55,8 +61,8 @@ func buildRootCmd(cli *core.CLI) *cobra.Command {
 				return nil
 			}
 			if err := cli.SetupWithAuthentication(cmd.Context()); err != nil {
-				fmt.Println(err)
-				return err
+				cli.Logger.Error("Authentication setup failed", zap.Error(err))
+				return fmt.Errorf("authentication failed: %w", err)
 			}
 			return nil
 		},
@@ -65,66 +71,43 @@ func buildRootCmd(cli *core.CLI) *cobra.Command {
 }
 
 func addSubCommands(rootCmd *cobra.Command, cli *core.CLI) {
-
 	rootCmd.AddCommand(loginCmd(cli))
 	rootCmd.AddCommand(logoutCmd(cli))
 	rootCmd.AddCommand(applicationsCmd(cli))
 }
 
 func commandRequiresAuthentication(invokedCommandName string) bool {
-	commandsWithNoAuthRequired := []string{
-		"is login",
-		"is logout",
+	commandsWithNoAuthRequired := map[string]bool{
+		"is login":  true,
+		"is logout": true,
 	}
-
-	for _, cmd := range commandsWithNoAuthRequired {
-		if cmd == invokedCommandName {
-			return false
-		}
-	}
-
-	return true
+	return !commandsWithNoAuthRequired[invokedCommandName]
 }
 
-func contextWithCancel() context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
-
-	go func() {
-		<-ch
-		defer cancel()
-		os.Exit(0)
-	}()
-
-	return ctx
-}
-
-func configLogger() zap.Logger {
-
+func configLogger() (*zap.Logger, error) {
 	config := zap.NewProductionConfig()
 
-	// Set the log file path
-	logFilePath := "/Users/thilinashashimalsenarath/Documents/my_projects/is-cli/.logs/is-cli.log"
-
-	// Create a file to write logs to
-	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	cwd, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to get user home directory: %w", err)
 	}
-	defer file.Close()
 
-	// Set up the zap logger to write to the specified file
+	logDir := filepath.Join(cwd, "logs")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	logFilePath := filepath.Join(logDir, "is-cli.log")
+
 	config.OutputPaths = []string{logFilePath}
 	config.ErrorOutputPaths = []string{logFilePath}
 
-	// Build the logger
-	logger, err := config.Build()
-	if err != nil {
-		panic(err)
-	}
-	defer logger.Sync() // Flushes buffer, if any
+	return config.Build()
+}
 
-	return *logger
+func handleSignals(cancel context.CancelFunc) {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+	<-sigCh
+	cancel()
 }

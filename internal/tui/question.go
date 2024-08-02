@@ -3,9 +3,9 @@ package tui
 type QuestionType string
 
 const (
-	ShortQuestion        QuestionType = "short"
-	LongQuestion         QuestionType = "long"
-	ShortSecreatQuestion QuestionType = "shortsecreat"
+	ShortQuestion       QuestionType = "short"
+	LongQuestion        QuestionType = "long"
+	ShortSecretQuestion QuestionType = "shortsecreat"
 )
 
 type Question struct {
@@ -24,8 +24,8 @@ func newInputField(questionType QuestionType, placeholder string) Input {
 		return NewShortAnswerField(placeholder)
 	case LongQuestion:
 		return NewLongAnswerField()
-	case ShortSecreatQuestion:
-		return NewShortAnswerFieldForSecrets(placeholder)	
+	case ShortSecretQuestion:
+		return NewShortAnswerFieldForSecrets(placeholder)
 	default:
 		return nil
 	}

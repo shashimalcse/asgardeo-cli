@@ -6,170 +6,169 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 var ErrConfigFileMissing = errors.New("config.json file is missing")
 var ErrNoAuthenticatedTenants = errors.New("not logged in. Try `is login`")
 
 type Config struct {
-	initError     error
+	mu            sync.RWMutex
 	path          string
+	Server        string            `json:"server"`
 	DefaultTenant string            `json:"default_tenant"`
 	Tenants       map[string]Tenant `json:"tenants"`
+	initialized   bool
 }
 
+// NewConfig creates a new Config instance
+func NewConfig() *Config {
+	return &Config{
+		path:    defaultPath(),
+		Tenants: make(map[string]Tenant),
+	}
+}
+
+// Initialize loads the configuration from disk
 func (c *Config) Initialize() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	c.initError = c.loadFromDisk()
-	return c.initError
+	if c.initialized {
+		return nil
+	}
+
+	if err := c.loadFromDisk(); err != nil && !errors.Is(err, ErrConfigFileMissing) {
+		return fmt.Errorf("failed to initialize config: %w", err)
+	}
+
+	c.initialized = true
+	return nil
 }
 
+// Validate checks if the configuration is valid
 func (c *Config) Validate() error {
 	if err := c.Initialize(); err != nil {
 		return err
 	}
 
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if len(c.Tenants) == 0 {
 		return ErrNoAuthenticatedTenants
 	}
-
-	if c.DefaultTenant != "" {
-		return nil
+	if c.DefaultTenant == "" {
+		return errors.New("no default tenant set")
 	}
-
-	return c.saveToDisk()
+	return nil
 }
 
+// IsLoggedInWithTenant checks if the user is logged in with a specific tenant
 func (c *Config) IsLoggedInWithTenant(tenantName string) bool {
-
-	_ = c.Initialize()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	if tenantName == "" {
 		tenantName = c.DefaultTenant
 	}
-
 	_, ok := c.Tenants[tenantName]
-	if !ok {
-		return false
-	}
-
-	//validate token
-
-	return true
+	// TODO: validate token
+	return ok
 }
 
+// GetTenant retrieves a tenant by name
 func (c *Config) GetTenant(tenantName string) (Tenant, error) {
-	if err := c.Initialize(); err != nil {
-		return Tenant{}, err
-	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	tenant, ok := c.Tenants[tenantName]
 	if !ok {
-		return Tenant{}, fmt.Errorf(
-			"failed to find tenant: %s.",
-			tenantName,
-		)
+		return Tenant{}, fmt.Errorf("tenant not found: %s", tenantName)
 	}
-
 	return tenant, nil
 }
 
+// AddTenant adds a new tenant to the configuration
 func (c *Config) AddTenant(tenant Tenant) error {
-
-	_ = c.Initialize()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if c.DefaultTenant == "" {
 		c.DefaultTenant = tenant.Name
 	}
-
-	if c.Tenants == nil {
-		c.Tenants = make(map[string]Tenant)
-	}
-
 	c.Tenants[tenant.Name] = tenant
-
 	return c.saveToDisk()
 }
 
+// RemoveTenant removes a tenant from the configuration
 func (c *Config) RemoveTenant(tenant string) error {
-	if err := c.Initialize(); err != nil {
-		if errors.Is(err, ErrConfigFileMissing) {
-			return nil
-		}
-		return err
-	}
-
-	if c.DefaultTenant == "" && len(c.Tenants) == 0 {
-		return nil
-	}
-
-	if c.DefaultTenant != "" && len(c.Tenants) == 0 {
-		c.DefaultTenant = ""
-		return c.saveToDisk()
-	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	delete(c.Tenants, tenant)
-
 	if c.DefaultTenant == tenant {
-		c.DefaultTenant = ""
-
-		for otherTenant := range c.Tenants {
-			c.DefaultTenant = otherTenant
-			break
-		}
+		return c.setDefaultTenant()
 	}
-
 	return c.saveToDisk()
 }
 
+// SetDefaultTenant sets the default tenant
 func (c *Config) SetDefaultTenant(tenantName string) error {
-	tenant, err := c.GetTenant(tenantName)
-	if err != nil {
-		return err
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, ok := c.Tenants[tenantName]; !ok {
+		return fmt.Errorf("tenant not found: %s", tenantName)
 	}
-
-	c.DefaultTenant = tenant.Name
-
+	c.DefaultTenant = tenantName
 	return c.saveToDisk()
+}
+
+func (c *Config) setDefaultTenant() error {
+	for tenantName := range c.Tenants {
+		c.DefaultTenant = tenantName
+		return c.saveToDisk()
+	}
+	return nil
 }
 
 func (c *Config) saveToDisk() error {
 	dir := filepath.Dir(c.path)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		const dirPerm os.FileMode = 0700
-		if err := os.MkdirAll(dir, dirPerm); err != nil {
-			return err
-		}
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
 	buffer, err := json.MarshalIndent(c, "", "    ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	const filePerm os.FileMode = 0600
-	return os.WriteFile(c.path, buffer, filePerm)
+	if err := os.WriteFile(c.path, buffer, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+	return nil
 }
 
 func (c *Config) loadFromDisk() error {
-
-	if c.path == "" {
-		c.path = defaultPath()
-	}
-
-	if _, err := os.Stat(c.path); os.IsNotExist(err) {
-		return ErrConfigFileMissing
-	}
-
 	buffer, err := os.ReadFile(c.path)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			return ErrConfigFileMissing
+		}
+		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	return json.Unmarshal(buffer, c)
+	if err := json.Unmarshal(buffer, c); err != nil {
+		return fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+	return nil
 }
 
 func defaultPath() string {
-
-	return "/Users/thilinashashimalsenarath/Documents/my_projects/is-cli/.config/is/config.json"
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	return filepath.Join(cwd, ".config", "config.json")
 }

@@ -3,27 +3,25 @@ package interactive
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/shashimalcse/is-cli/internal/core"
 	"github.com/shashimalcse/is-cli/internal/management"
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
 
-// Application Create Interactive
-
 type ApplicationCreateState int
 
 const (
-	ApplicationCreateInitiated ApplicationCreateState = iota
-	ApplicationCreateTypeSelected
-	ApplicationCreateQuestionsCompleted
-	ApplicationCreateCreatingInProgress
-	ApplicationCreateCreatingCompleted
-	ApplicationCreateError
+	StateInitiated ApplicationCreateState = iota
+	StateTypeSelected
+	StateQuestionsCompleted
+	StateCreatingInProgress
+	StateCreatingCompleted
+	StateCreatingError
 )
 
 type ApplicationType string
@@ -37,61 +35,178 @@ const (
 )
 
 type ApplicationCreateModel struct {
-	styles                         *tui.Styles
-	spinner                        spinner.Model
-	width                          int
-	height                         int
-	cli                            *core.CLI
-	state                          ApplicationCreateState
-	stateError                     error
-	applicationTypesList           list.Model
-	questionsForSinglePage         []tui.Question
-	confirmationQuestion           tui.Question
-	currentSinglePageQuestionIndex int
-	applicationType                ApplicationType
-	output                         string
+	styles               *tui.Styles
+	spinner              spinner.Model
+	width, height        int
+	cli                  *core.CLI
+	state                ApplicationCreateState
+	stateError           error
+	applicationTypes     list.Model
+	questions            []tui.Question
+	currentQuestionIndex int
+	applicationType      ApplicationType
+	output               string
 }
 
-func NewApplicationCreateModel(cli *core.CLI) ApplicationCreateModel {
-
-	applicationTypesItems := []list.Item{
-		tui.NewItemWithKey("single_page", "Single-Page Application", "A web application that runs application logic in the browser."),
-		tui.NewItemWithKey("traditional", "Traditional Web Application", "A web application that runs application logic on the server."),
-		tui.NewItemWithKey("mobile", "Mobile Application", "Applications developed to target mobile devices."),
-		tui.NewItemWithKey("standard", "Standard-Based Application", "Applications built using standard protocols."),
-		tui.NewItemWithKey("m2m", "M2M Application", "Applications tailored for Machine to Machine communication."),
+func NewApplicationCreateModel(cli *core.CLI) *ApplicationCreateModel {
+	return &ApplicationCreateModel{
+		styles:           tui.DefaultStyles(),
+		spinner:          newSpinner(),
+		cli:              cli,
+		state:            StateInitiated,
+		applicationTypes: newApplicationTypesList(),
+		questions:        initQuestions(),
 	}
-	applicationTypesList := list.New(applicationTypesItems, list.NewDefaultDelegate(), 0, 0)
-	applicationTypesList.Title = "Select application template to create application"
+}
 
-	questionsForSinglePage := []tui.Question{
+func newApplicationTypesList() list.Model {
+	items := []list.Item{
+		tui.NewItemWithKey("single_page", string(SinglePage), "A web application that runs application logic in the browser."),
+		tui.NewItemWithKey("traditional", string(Traditional), "A web application that runs application logic on the server."),
+		tui.NewItemWithKey("mobile", string(Mobile), "Applications developed to target mobile devices."),
+		tui.NewItemWithKey("standard", string(Standard), "Applications built using standard protocols."),
+		tui.NewItemWithKey("m2m", string(M2M), "Applications tailored for Machine to Machine communication."),
+	}
+	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	l.Title = "Select application template to create application"
+	return l
+}
+
+func initQuestions() []tui.Question {
+	return []tui.Question{
 		tui.NewQuestion("Name", "Name", tui.ShortQuestion),
 		tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
+		tui.NewQuestion("Are you sure you want to create the application? (y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
+	}
+}
+
+func (m ApplicationCreateModel) Init() tea.Cmd {
+	return m.spinner.Tick
+}
+
+func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch keypress := msg.String(); keypress {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "enter":
+			return m.handleKeyEnter(msg)
+		}
+	case tea.WindowSizeMsg:
+		return m.handleWindowResize(msg)
 	}
 
-	confirmationQuestion := tui.NewQuestion("Are you sure you want to create the application? (y/n)", "(y/n)", tui.ShortQuestion)
-
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	return ApplicationCreateModel{
-		styles:                         tui.DefaultStyles(),
-		spinner:                        s,
-		cli:                            cli,
-		state:                          ApplicationCreateInitiated,
-		applicationTypesList:           applicationTypesList,
-		questionsForSinglePage:         questionsForSinglePage,
-		confirmationQuestion:           confirmationQuestion,
-		currentSinglePageQuestionIndex: 0,
+	var cmd tea.Cmd
+	if m.state == StateInitiated {
+		m.applicationTypes, _ = m.applicationTypes.Update(msg)
 	}
+	if m.state == StateTypeSelected || m.state == StateQuestionsCompleted {
+		m.questions[m.currentQuestionIndex].Input, _ = m.questions[m.currentQuestionIndex].Input.Update(msg)
+	}
+	m.spinner, cmd = m.spinner.Update(msg)
+	return m, cmd
+}
 
+func (m ApplicationCreateModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.state {
+	case StateInitiated:
+		i, ok := m.applicationTypes.SelectedItem().(tui.Item)
+		if ok {
+			m.applicationType = ApplicationType(i.Title())
+			m.state = StateTypeSelected
+		}
+	case StateTypeSelected:
+		switch m.applicationType {
+		case SinglePage:
+			currentQuestion := &m.questions[m.currentQuestionIndex]
+			currentQuestion.Answer = currentQuestion.Input.Value()
+			if m.currentQuestionIndex == len(m.questions)-2 {
+				m.state = StateQuestionsCompleted
+				m.NextQuestion()
+				m.questions[m.currentQuestionIndex].Input.SetValue("")
+			} else {
+				m.NextQuestion()
+			}
+			return m, currentQuestion.Input.Blur
+		}
+	case StateQuestionsCompleted:
+		confirmation := strings.ToLower(m.questions[m.currentQuestionIndex].Input.Value())
+		if (confirmation == "y") || (confirmation == "Y" || confirmation == "") {
+			m.state = StateCreatingInProgress
+			err := m.createApplications()
+			if err != nil {
+				m.state = StateCreatingError
+				m.stateError = err
+				m.output = "Error creating application!"
+			} else {
+				m.state = StateCreatingCompleted
+				m.output = "Application created successfully!"
+			}
+		} else {
+			m.output = "Application creation cancelled."
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m ApplicationCreateModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+	m.width, m.height = msg.Width, msg.Height
+	h, v := m.styles.List.GetFrameSize()
+	m.applicationTypes.SetSize(msg.Width-h, msg.Height-v)
+	return m, nil
+}
+
+func (m ApplicationCreateModel) View() string {
+	switch m.state {
+	case StateInitiated:
+		return m.styles.List.Render(m.applicationTypes.View())
+	case StateTypeSelected, StateQuestionsCompleted:
+		return m.renderQuestions()
+	case StateCreatingInProgress:
+		return fmt.Sprintf("\n\n   %s Creating application...\n\n", m.spinner.View())
+	case StateCreatingCompleted:
+		return "Application created successfully!"
+	case StateCreatingError:
+		return fmt.Sprintf("Error creating application: %v", m.stateError)
+	}
+	return ""
+}
+
+func (m *ApplicationCreateModel) renderQuestions() string {
+	if m.applicationType != SinglePage {
+		return "Not supported yet!"
+	}
+	var sb strings.Builder
+	for i, q := range m.questions[:m.currentQuestionIndex] {
+		sb.WriteString(fmt.Sprintf("%s: %s\n", q.Question, q.Answer))
+		if i == len(m.questions)-1 {
+			sb.WriteString("\n")
+		}
+	}
+	sb.WriteString(m.questions[m.currentQuestionIndex].Input.View())
+	return sb.String()
+}
+
+func (m ApplicationCreateModel) Value() string {
+	return fmt.Sprint(m.output)
+}
+
+func (m *ApplicationCreateModel) NextQuestion() {
+	if m.currentQuestionIndex < len(m.questions)-1 {
+		m.currentQuestionIndex++
+	} else {
+		m.currentQuestionIndex = 0
+	}
 }
 
 func (m ApplicationCreateModel) createApplications() error {
 
 	if m.applicationType == SinglePage {
 		application := management.Application{
-			Name:       m.questionsForSinglePage[0].Answer,
+			Name:       m.questions[0].Answer,
 			TemplateID: "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",
 			AdvancedConfig: management.AdvancedConfigurations{
 				DiscoverableByEndUsers: false,
@@ -130,8 +245,8 @@ func (m ApplicationCreateModel) createApplications() error {
 						UserAccessTokenExpiryInSeconds:        3600,
 						ValidateTokenBinding:                  false,
 					},
-					AllowedOrigins: []string{m.questionsForSinglePage[1].Answer},
-					CallbackURLs:   []string{m.questionsForSinglePage[1].Answer},
+					AllowedOrigins: []string{m.questions[1].Answer},
+					CallbackURLs:   []string{m.questions[1].Answer},
 					GrantTypes:     []string{"authorization_code", "refresh_token"},
 					PKCE: management.PKCE{
 						Mandatory:                      true,
@@ -149,121 +264,4 @@ func (m ApplicationCreateModel) createApplications() error {
 		return err
 	}
 	return nil
-}
-
-func (m ApplicationCreateModel) Init() tea.Cmd {
-	return m.spinner.Tick
-}
-
-func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
-	currentSinglePageQuestion := m.questionsForSinglePage[m.currentSinglePageQuestionIndex]
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch keypress := msg.String(); keypress {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "enter":
-			switch m.state {
-			case ApplicationCreateInitiated:
-				i, ok := m.applicationTypesList.SelectedItem().(tui.Item)
-				if ok {
-					m.applicationType = ApplicationType(i.Title())
-					m.state = ApplicationCreateTypeSelected
-				}
-			case ApplicationCreateTypeSelected:
-				switch m.applicationType {
-				case SinglePage:
-					currentSinglePageQuestion := &m.questionsForSinglePage[m.currentSinglePageQuestionIndex]
-					currentSinglePageQuestion.Answer = currentSinglePageQuestion.Input.Value()
-					if m.currentSinglePageQuestionIndex == len(m.questionsForSinglePage)-1 {
-						m.state = ApplicationCreateQuestionsCompleted
-						m.confirmationQuestion.Input.SetValue("")
-					} else {
-						m.NextSinglePageQuestion()
-					}
-					return m, currentSinglePageQuestion.Input.Blur
-				}
-			case ApplicationCreateQuestionsCompleted:
-				m.confirmationQuestion.Answer = m.confirmationQuestion.Input.Value()
-				if (m.confirmationQuestion.Answer == "y") || (m.confirmationQuestion.Answer == "Y" || m.confirmationQuestion.Answer == "") {
-					m.state = ApplicationCreateCreatingInProgress
-					err := m.createApplications()
-					if err != nil {
-						m.state = ApplicationCreateError
-						m.stateError = err
-						m.output = "Error creating application!"
-					} else {
-						m.state = ApplicationCreateCreatingCompleted
-						m.output = "Application created successfully!"
-					}
-				} else {
-					m.output = "Application creation cancelled."
-					return m, tea.Quit
-				}
-			}
-
-		}
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		h, v := m.styles.List.GetFrameSize()
-		m.applicationTypesList.SetSize(msg.Width-h, msg.Height-v)
-	}
-
-	var cmd tea.Cmd
-	m.applicationTypesList, _ = m.applicationTypesList.Update(msg)
-	currentSinglePageQuestion.Input, _ = currentSinglePageQuestion.Input.Update(msg)
-	m.confirmationQuestion.Input, _ = m.confirmationQuestion.Input.Update(msg)
-	m.spinner, cmd = m.spinner.Update(msg)
-	return m, cmd
-}
-
-func (m ApplicationCreateModel) View() string {
-
-	switch m.state {
-	case ApplicationCreateInitiated:
-		return m.styles.List.Render(m.applicationTypesList.View())
-	case ApplicationCreateTypeSelected:
-		switch m.applicationType {
-		case SinglePage:
-			current := m.questionsForSinglePage[m.currentSinglePageQuestionIndex]
-			var previousQAs string
-			for i := 0; i < m.currentSinglePageQuestionIndex; i++ {
-				question := m.questionsForSinglePage[i]
-				previousQAs += fmt.Sprintf("%s : %s\n", question.Question, question.Answer)
-			}
-			return previousQAs + current.Input.View()
-		default:
-			return "Other types are not supported yet!"
-		}
-
-	case ApplicationCreateQuestionsCompleted:
-		var previousQAs string
-		for i := 0; i < len(m.questionsForSinglePage); i++ {
-			question := m.questionsForSinglePage[i]
-			previousQAs += fmt.Sprintf("%s : %s\n", question.Question, question.Answer)
-		}
-		return previousQAs + m.confirmationQuestion.Question + "\n" + m.confirmationQuestion.Input.View()
-	case ApplicationCreateCreatingInProgress:
-		return fmt.Sprintf("\n\n   %s Creating application...!\n\n", m.spinner.View())
-	case ApplicationCreateCreatingCompleted:
-		return "Application created successfully!"
-	case ApplicationCreateError:
-		return fmt.Sprint(m.stateError.Error())
-	}
-
-	return ""
-}
-
-func (m ApplicationCreateModel) Value() string {
-	return fmt.Sprint(m.output)
-}
-
-func (m *ApplicationCreateModel) NextSinglePageQuestion() {
-	if m.currentSinglePageQuestionIndex < len(m.questionsForSinglePage)-1 {
-		m.currentSinglePageQuestionIndex++
-	} else {
-		m.currentSinglePageQuestionIndex = 0
-	}
 }

@@ -33,11 +33,9 @@ func (t *Tenant) GetAccessToken() string {
 }
 
 func (t *Tenant) CheckAuthenticationStatus() error {
-
 	accessToken := t.GetAccessToken()
 	if accessToken != "" {
 		return nil
 	}
-
 	return ErrInvalidToken
 }

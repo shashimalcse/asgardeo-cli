@@ -13,50 +13,253 @@ import (
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
 
-// AuthenticateState represents the state of the authentication process for both machine and user
+var (
+	// Login options
+	AS_A_MACHINE = "as a machine"
+	AS_A_USER    = "as a user"
+)
+
+// AuthenticateState represents the current state of the authentication process
 type AuthenticateState int
 
+// Constants for different authentication states
 const (
-	NotStarted                  AuthenticateState = 0
-	ClientCredentialsInProgress AuthenticateState = 1
-	ClientCredentialsCompleted  AuthenticateState = 2
-	ClientCredentialsError      AuthenticateState = 3
-	DeviceFlowInitiated         AuthenticateState = 4
-	DeviceFlowCodeReceived      AuthenticateState = 5
-	DeviceFlowError             AuthenticateState = 6
-	DeviceFlowBroswerWait       AuthenticateState = 7
-	DeviceFlowBroswerCompleted  AuthenticateState = 8
-	DeviceFlowBroswerError      AuthenticateState = 9
-	DeviceFlowCompleted         AuthenticateState = 10
+	StateNotStarted AuthenticateState = iota
+	StateClientCredentialsInProgress
+	StateClientCredentialsCompleted
+	StateClientCredentialsError
+	StateDeviceFlowInitiated
+	StateDeviceFlowCodeReceived
+	StateDeviceFlowError
+	StateDeviceFlowBrowserWait
+	StateDeviceFlowBrowserCompleted
+	StateDeviceFlowBrowserError
+	StateDeviceFlowCompleted
 )
 
 type LoginModel struct {
-	styles                             *tui.Styles
-	spinner                            spinner.Model
-	width                              int
-	height                             int
-	optionsList                        list.Model
-	isOptionChoosed                    bool
-	optionChoosed                      string
-	questionsForLoginAsMachine         []tui.Question
-	currentLoginAsMachineQuestionIndex int
-	loginAsMachineQuestionsDone        bool
-	questionsForLoginAsUser            []tui.Question
-	currentLoginAsUserQuestionIndex    int
-	loginAsUserQuestionsDone           bool
-	cli                                *core.CLI
-	status                             AuthenticateState
-	statusMessage                      string
-	deviceFlowState                    auth.State
+	styles              *tui.Styles
+	spinner             spinner.Model
+	width, height       int
+	loginOptions        list.Model
+	isLoginOptionChosen bool
+	loginOptionChosen   string
+	questions           []tui.Question
+	currentQuestionIdx  int
+	questionsDone       bool
+	cli                 *core.CLI
+	state               AuthenticateState
+	stateMessage        string
+	deviceFlowState     auth.State
+}
+
+// NewLoginModel creates and initializes a new LoginModel
+func NewLoginModel(cli *core.CLI) LoginModel {
+	return LoginModel{
+		styles:       tui.DefaultStyles(),
+		spinner:      newSpinner(),
+		loginOptions: newLoginOptions(),
+		cli:          cli,
+		state:        StateNotStarted,
+	}
+}
+
+func newSpinner() spinner.Model {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	return s
+}
+
+func newLoginOptions() list.Model {
+	items := []list.Item{
+		tui.NewItem(AS_A_MACHINE, "Authenticates the IS CLI as a machine using client credentials"),
+		tui.NewItem(AS_A_USER, "Authenticates the IS CLI as a user using personal credentials"),
+	}
+	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	l.Title = "How would you like to authenticate?"
+	return l
+}
+
+func (m LoginModel) Init() tea.Cmd {
+	return m.spinner.Tick
+}
+
+func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch keypress := msg.String(); keypress {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "enter":
+			return m.handleKeyEnter(msg)
+		}
+	case tea.WindowSizeMsg:
+		return m.handleWindowResize(msg)
+	}
+
+	var cmd tea.Cmd
+	if m.isLoginOptionChosen && !m.questionsDone {
+		m.questions[m.currentQuestionIdx].Input, _ = m.questions[m.currentQuestionIdx].Input.Update(msg)
+	} else if !m.isLoginOptionChosen {
+		m.loginOptions, _ = m.loginOptions.Update(msg)
+	}
+	m.spinner, cmd = m.spinner.Update(msg)
+	return m, cmd
+}
+
+func (m LoginModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if !m.isLoginOptionChosen {
+		i, ok := m.loginOptions.SelectedItem().(tui.Item)
+		if ok {
+			m.loginOptionChosen = i.Title()
+			m.isLoginOptionChosen = true
+			m.initQuestions()
+		}
+	} else {
+		currentQuestion := &m.questions[m.currentQuestionIdx]
+		if m.loginOptionChosen == AS_A_USER {
+			// Handle device flow
+			if m.state == StateDeviceFlowBrowserWait {
+				m.state = StateDeviceFlowBrowserCompleted
+				err := m.getAccessTokenFromDeviceCode(m.deviceFlowState)
+				if err != nil {
+					m.state = StateDeviceFlowError
+					m.stateMessage = err.Error()
+				} else {
+					m.state = StateDeviceFlowCompleted
+					return m, tea.Quit
+				}
+			} else {
+				if m.currentQuestionIdx == len(m.questions)-1 {
+					m.questionsDone = true
+					currentQuestion.Answer = currentQuestion.Input.Value()
+					m.state = StateDeviceFlowInitiated
+					state, err := m.getDeviceCode()
+					if err != nil {
+						m.state = StateDeviceFlowError
+						m.stateMessage = err.Error()
+					} else {
+						m.state = StateDeviceFlowCodeReceived
+						if err = browser.OpenURL(state.VerificationURIComplete); err != nil {
+							m.state = StateDeviceFlowBrowserError
+						}
+						m.deviceFlowState = state
+						m.state = StateDeviceFlowBrowserWait
+					}
+				} else {
+					m.NextQuestion()
+				}
+				currentQuestion.Answer = currentQuestion.Input.Value()
+				return m, currentQuestion.Input.Blur
+			}
+		} else {
+			// Handle client credentials flow
+			if m.currentQuestionIdx == len(m.questions)-1 {
+				m.questionsDone = true
+				currentQuestion.Answer = currentQuestion.Input.Value()
+				m.state = StateClientCredentialsInProgress
+				err := m.runLoginAsMachine()
+				if err != nil {
+					m.state = StateClientCredentialsError
+					m.stateMessage = err.Error()
+				} else {
+					m.state = StateClientCredentialsCompleted
+				}
+				return m, nil
+			} else {
+				m.NextQuestion()
+			}
+			currentQuestion.Answer = currentQuestion.Input.Value()
+			return m, currentQuestion.Input.Blur
+		}
+		currentQuestion.Input, _ = currentQuestion.Input.Update(msg)
+	}
+	return m, nil
+}
+
+func (m LoginModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+	m.width, m.height = msg.Width, msg.Height
+	h, v := m.styles.List.GetFrameSize()
+	m.loginOptions.SetSize(msg.Width-h, msg.Height-v)
+	return m, nil
+}
+
+func (m *LoginModel) initQuestions() {
+	if m.loginOptionChosen == AS_A_MACHINE {
+		m.questions = []tui.Question{
+			tui.NewQuestion("tenant", "Tenant Domain", tui.ShortQuestion),
+			tui.NewQuestion("client id", "Client ID", tui.ShortQuestion),
+			tui.NewQuestion("client secret", "Client Secret", tui.ShortSecretQuestion),
+		}
+	} else {
+		m.questions = []tui.Question{
+			tui.NewQuestion("tenant", "Tenant Domain", tui.ShortQuestion),
+			tui.NewQuestion("client id", "Client ID", tui.ShortQuestion),
+		}
+	}
+}
+
+// View renders the current view of the model
+func (m LoginModel) View() string {
+	if !m.isLoginOptionChosen {
+		return m.styles.List.Render(m.loginOptions.View())
+	}
+
+	if !m.questionsDone {
+		var previousQAs string
+		previousQAs += fmt.Sprintf("Trying to authenticate %s\n\n", m.loginOptionChosen)
+		for i := 0; i < m.currentQuestionIdx; i++ {
+			question := m.questions[i]
+			previousQAs += fmt.Sprintf("%s : %s\n", question.Question, question.Answer)
+		}
+		return previousQAs + m.questions[m.currentQuestionIdx].Input.View()
+	}
+
+	return m.renderAuthenticationStatus()
+}
+
+func (m LoginModel) renderAuthenticationStatus() string {
+	switch m.state {
+	case StateClientCredentialsCompleted:
+		return "Successfully authenticated as a machine"
+	case StateClientCredentialsError:
+		return "Error authenticating as a machine: " + m.stateMessage
+	case StateClientCredentialsInProgress:
+		return fmt.Sprintf("%s Authenticating as a machine...", m.spinner.View())
+	case StateDeviceFlowInitiated:
+		return "Device flow initiated."
+	case StateDeviceFlowBrowserWait:
+		return fmt.Sprintf("\n\n   %s Waiting for the login to complete in the browser. Press Enter after login is completed.\n\n", m.spinner.View())
+	case StateDeviceFlowBrowserCompleted:
+		return "Device flow completed."
+	case StateDeviceFlowBrowserError:
+		return "Error opening browser. Please visit " + m.deviceFlowState.VerificationURIComplete + " to authenticate."
+	case StateDeviceFlowCompleted:
+		return "Successfully logged in"
+	case StateDeviceFlowError:
+		return "Error initiating device flow: " + m.stateMessage
+	default:
+		return ""
+	}
+}
+
+func (m *LoginModel) NextQuestion() {
+	if m.currentQuestionIdx < len(m.questions)-1 {
+		m.currentQuestionIdx++
+	} else {
+		m.currentQuestionIdx = 0
+	}
 }
 
 func (m LoginModel) runLoginAsMachine() error {
 
 	err := core.RunLoginAsMachine(
 		core.LoginInputs{
-			ClientID:     m.questionsForLoginAsMachine[0].Answer,
-			ClientSecret: m.questionsForLoginAsMachine[1].Answer,
-			Tenant:       m.questionsForLoginAsMachine[2].Answer,
+			Tenant:       m.questions[0].Answer,
+			ClientID:     m.questions[1].Answer,
+			ClientSecret: m.questions[2].Answer,
 		}, m.cli)
 	return err
 }
@@ -69,196 +272,4 @@ func (m LoginModel) getDeviceCode() (auth.State, error) {
 func (m LoginModel) getAccessTokenFromDeviceCode(state auth.State) error {
 
 	return core.GetAccessTokenFromDeviceCode(m.cli, state)
-}
-
-func NewLoginModel(cli *core.CLI) LoginModel {
-
-	// Create a list of items for the user to choose from to authenticate
-	items := []list.Item{
-		tui.NewItem("As a machine", "Authenticates the IS CLI as a machine using client credentials"),
-		tui.NewItem("As a user", "Authenticates the IS CLI as a user using personal credentials"),
-	}
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "How would you like to authenticate?"
-
-	// Create a list of questions to ask the user when authenticating as a machine
-	questionsForLoginAsMachine := []tui.Question{tui.NewQuestion("client id", "Client ID", tui.ShortQuestion), tui.NewQuestion("client secret", "Client Secret", tui.ShortSecreatQuestion), tui.NewQuestion("tenant", "Your tenant domain", tui.ShortQuestion)}
-
-	// Create a list of questions to ask the user when authenticating as a user
-	questionsForLoginAsUser := []tui.Question{tui.NewQuestion("client id", "Client ID", tui.ShortQuestion), tui.NewQuestion("tenant", "Your tenant domain", tui.ShortQuestion)}
-
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	return LoginModel{
-		styles:                             tui.DefaultStyles(),
-		spinner:                            s,
-		optionsList:                        l,
-		isOptionChoosed:                    false,
-		questionsForLoginAsMachine:         questionsForLoginAsMachine,
-		questionsForLoginAsUser:            questionsForLoginAsUser,
-		currentLoginAsMachineQuestionIndex: 0,
-		currentLoginAsUserQuestionIndex:    0,
-		optionChoosed:                      "",
-		cli:                                cli,
-		status:                             NotStarted}
-
-}
-
-func (m LoginModel) Init() tea.Cmd {
-	return m.spinner.Tick
-}
-
-func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
-	currentLoginAsMachineQuestion := &m.questionsForLoginAsMachine[m.currentLoginAsMachineQuestionIndex]
-	currentLoginAsUserQuestion := &m.questionsForLoginAsUser[m.currentLoginAsUserQuestionIndex]
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch keypress := msg.String(); keypress {
-		case "ctrl+c":
-			return m, tea.Quit
-
-		case "enter":
-			if !m.isOptionChoosed {
-				i, ok := m.optionsList.SelectedItem().(tui.Item)
-				if ok {
-					m.optionChoosed = i.Title()
-					m.isOptionChoosed = true
-				}
-			} else {
-				if m.optionChoosed == "As a user" {
-					if m.status == DeviceFlowBroswerWait {
-						m.status = DeviceFlowBroswerCompleted
-						err := m.getAccessTokenFromDeviceCode(m.deviceFlowState)
-						if err != nil {
-							m.status = DeviceFlowError
-							m.statusMessage = err.Error()
-						} else {
-							m.status = DeviceFlowCompleted
-							return m, tea.Quit
-						}
-					} else {
-						if m.currentLoginAsUserQuestionIndex == len(m.questionsForLoginAsUser)-1 {
-							m.loginAsUserQuestionsDone = true
-							currentLoginAsUserQuestion.Answer = currentLoginAsUserQuestion.Input.Value()
-							m.status = DeviceFlowInitiated
-							state, err := m.getDeviceCode()
-							if err != nil {
-								m.status = DeviceFlowError
-								m.statusMessage = err.Error()
-							} else {
-								m.status = DeviceFlowCodeReceived
-								if err = browser.OpenURL(state.VerificationURIComplete); err != nil {
-									m.status = DeviceFlowBroswerError
-								}
-								m.deviceFlowState = state
-								m.status = DeviceFlowBroswerWait
-							}
-						} else {
-							m.NextLoginAsUserQuestion()
-						}
-						currentLoginAsUserQuestion.Answer = currentLoginAsUserQuestion.Input.Value()
-						return m, currentLoginAsUserQuestion.Input.Blur
-					}
-				} else {
-					if m.currentLoginAsMachineQuestionIndex == len(m.questionsForLoginAsMachine)-1 {
-						m.loginAsMachineQuestionsDone = true
-						currentLoginAsMachineQuestion.Answer = currentLoginAsMachineQuestion.Input.Value()
-						m.status = ClientCredentialsInProgress
-						err := m.runLoginAsMachine()
-						if err != nil {
-							m.statusMessage = err.Error()
-							m.status = ClientCredentialsError
-						} else {
-							m.status = ClientCredentialsCompleted
-						}
-						return m, nil
-					} else {
-						m.NextLoginAsMachineQuestion()
-					}
-					currentLoginAsMachineQuestion.Answer = currentLoginAsMachineQuestion.Input.Value()
-					return m, currentLoginAsMachineQuestion.Input.Blur
-				}
-			}
-
-		}
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		h, v := m.styles.List.GetFrameSize()
-		m.optionsList.SetSize(msg.Width-h, msg.Height-v)
-	}
-
-	var cmd tea.Cmd
-	m.optionsList, _ = m.optionsList.Update(msg)
-	currentLoginAsMachineQuestion.Input, _ = currentLoginAsMachineQuestion.Input.Update(msg)
-	currentLoginAsUserQuestion.Input, _ = currentLoginAsUserQuestion.Input.Update(msg)
-	m.spinner, cmd = m.spinner.Update(msg)
-	return m, cmd
-}
-
-func (m LoginModel) View() string {
-	if m.isOptionChoosed {
-		if m.optionChoosed == "As a user" {
-			current := m.questionsForLoginAsUser[m.currentLoginAsUserQuestionIndex]
-			if !m.loginAsUserQuestionsDone {
-				return current.Input.View()
-			} else {
-				if m.status == ClientCredentialsCompleted {
-					return "Authenticated"
-				} else if m.status == ClientCredentialsError {
-					return "Error authenticating as a machine - " + m.statusMessage
-				} else if m.status == ClientCredentialsInProgress {
-					return "Authenticating as a user..."
-				} else if m.status == DeviceFlowInitiated {
-					return "Device flow initiated."
-				} else if m.status == DeviceFlowBroswerWait {
-					return fmt.Sprintf("\n\n   %s Waiting for the login to complete in the browser. Please press Enter after login completed!\n\n", m.spinner.View())
-				} else if m.status == DeviceFlowBroswerCompleted {
-					return "Device flow completed."
-				} else if m.status == DeviceFlowBroswerError {
-					return "Error opening browser. Please visit " + m.deviceFlowState.VerificationURIComplete + " to authenticate."
-				} else if m.status == DeviceFlowCompleted {
-					return "Successfully logged in"
-				} else if m.status == DeviceFlowError {
-					return "Error initiating device flow - " + m.statusMessage
-				}
-				return ""
-			}
-		} else {
-			current := m.questionsForLoginAsMachine[m.currentLoginAsMachineQuestionIndex]
-			if !m.loginAsMachineQuestionsDone {
-				return current.Input.View()
-			} else {
-				if m.status == ClientCredentialsCompleted {
-					return "Successfully authenticated as a machine"
-				} else if m.status == ClientCredentialsError {
-					return "Error authenticating as a machine - " + m.statusMessage
-				} else if m.status == ClientCredentialsInProgress {
-					return "Authenticating as a machine..."
-				}
-				return ""
-			}
-		}
-
-	} else {
-		return m.styles.List.Render(m.optionsList.View())
-	}
-}
-
-func (m *LoginModel) NextLoginAsUserQuestion() {
-	if m.currentLoginAsUserQuestionIndex < len(m.questionsForLoginAsMachine)-1 {
-		m.currentLoginAsUserQuestionIndex++
-	} else {
-		m.currentLoginAsUserQuestionIndex = 0
-	}
-}
-
-func (m *LoginModel) NextLoginAsMachineQuestion() {
-	if m.currentLoginAsMachineQuestionIndex < len(m.questionsForLoginAsMachine)-1 {
-		m.currentLoginAsMachineQuestionIndex++
-	} else {
-		m.currentLoginAsMachineQuestionIndex = 0
-	}
 }

@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/url"
+
+	"github.com/shashimalcse/is-cli/internal/config"
 )
 
 type Management struct {
@@ -18,33 +20,35 @@ type manager struct {
 	management *Management
 }
 
-func New(tenantDomain string, accessToken string) (*Management, error) {
-
-	server := "https://api.asgardeo.io/"
-	basePath := "t/" + tenantDomain + "/api/server/v1"
-	u, err := url.Parse(server)
+func New(cfg *config.Config, tenantDomain string) (*Management, error) {
+	tenant, err := cfg.GetTenant(tenantDomain)
 	if err != nil {
 		return nil, err
 	}
-
+	basePath := "t/" + tenant.Name + "/api/server/v1"
+	u, err := url.Parse("https://api.asgardeo.io/")
+	if err != nil {
+		return nil, err
+	}
 	m := &Management{
 		url:      u,
 		basePath: basePath,
-		http: &http.Client{
-			Transport: &transport{
-				underlyingTransport: &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-				},
-				token: accessToken,
+		http:     newHTTPClient(tenant.AccessToken, true),
+	}
+	m.common.management = m
+	m.Application = (*ApplicationManager)(&m.common)
+	return m, nil
+}
+
+func newHTTPClient(token string, insecureSkipTLS bool) *http.Client {
+	return &http.Client{
+		Transport: &transport{
+			underlyingTransport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipTLS},
 			},
+			token: token,
 		},
 	}
-
-	m.common.management = m
-
-	m.Application = (*ApplicationManager)(&m.common)
-
-	return m, nil
 }
 
 type transport struct {

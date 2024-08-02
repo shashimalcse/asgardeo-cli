@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shashimalcse/is-cli/internal/core"
@@ -11,37 +10,63 @@ import (
 )
 
 func loginCmd(cli *core.CLI) *cobra.Command {
-
 	var inputs core.LoginInputs
+	var verbose bool
+
 	cmd := &cobra.Command{
 		Use:     "login",
 		Short:   "Authenticate the IS CLI",
 		Example: "is login",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			shouldPrompt := !inputs.IsLoggingInAsAMachine()
-			if shouldPrompt {
-
-				m := interactive.NewLoginModel(cli)
-				p := tea.NewProgram(m, tea.WithAltScreen())
-
-				if _, err := p.Run(); err != nil {
-					fmt.Println("Error running program:", err)
-					os.Exit(1)
-				} else {
-
-				}
-			} else {
-				if err := core.RunLoginAsMachine(core.LoginInputs{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant}, cli); err != nil {
-					return err
-				}
+			// Determine if we should use interactive mode
+			if !inputs.IsLoggingInAsAMachine() {
+				return runInteractiveLogin(cli, verbose)
 			}
-			return nil
+			return runMachineLogin(cli, inputs, verbose)
 		},
 	}
-	cmd.Flags().StringVarP(&inputs.ClientID, "client-id", "", "", "Client ID")
-	cmd.Flags().StringVarP(&inputs.ClientSecret, "client-secret", "", "", "Client Secret")
-	cmd.Flags().StringVarP(&inputs.Tenant, "tenant", "", "", "Tenant")
+
+	cmd.Flags().StringVar(&inputs.ClientID, "client-id", "", "Client ID")
+	cmd.Flags().StringVar(&inputs.ClientSecret, "client-secret", "", "Client Secret")
+	cmd.Flags().StringVar(&inputs.Tenant, "tenant", "", "Tenant")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 	cmd.MarkFlagsRequiredTogether("client-id", "client-secret", "tenant")
+
 	return cmd
+}
+
+func runInteractiveLogin(cli *core.CLI, verbose bool) error {
+	m := interactive.NewLoginModel(cli)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("error running interactive login: %w", err)
+	}
+	return nil
+}
+
+func runMachineLogin(cli *core.CLI, inputs core.LoginInputs, verbose bool) error {
+	if verbose {
+		fmt.Println("Attempting machine login...")
+	}
+
+	if err := validateMachineLoginInputs(inputs); err != nil {
+		return err
+	}
+
+	if err := core.RunLoginAsMachine(inputs, cli); err != nil {
+		return fmt.Errorf("failed to login as machine: %w", err)
+	}
+
+	if verbose {
+		fmt.Println("Machine login successful")
+	}
+	return nil
+}
+
+func validateMachineLoginInputs(inputs core.LoginInputs) error {
+	if inputs.ClientID == "" || inputs.ClientSecret == "" || inputs.Tenant == "" {
+		return fmt.Errorf("client-id, client-secret, and tenant are required for machine login")
+	}
+	return nil
 }

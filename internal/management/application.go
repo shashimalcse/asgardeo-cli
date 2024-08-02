@@ -2,6 +2,18 @@ package management
 
 import "context"
 
+type ApplicationManager manager
+
+func (m *ApplicationManager) List(ctx context.Context) (a *ApplicationList, err error) {
+	err = m.management.Request(ctx, "GET", m.management.URI("applications"), &a)
+	return
+}
+
+func (m *ApplicationManager) Create(ctx context.Context, application Application) (a *Application, err error) {
+	err = m.management.Request(ctx, "POST", m.management.URI("applications"), application)
+	return
+}
+
 type Application struct {
 	ID                           string                       `json:"id,omitempty"`
 	Name                         string                       `json:"name,omitempty"`
@@ -28,8 +40,6 @@ type ApplicationList struct {
 	Applications []Application `json:"applications"`
 	Links        []Link        `json:"links"`
 }
-
-type ApplicationManager manager
 
 type Link struct {
 	Href string `json:"href"`
@@ -155,14 +165,4 @@ type AdditionalSpProperty struct {
 
 type ProvisioningConfigurations struct {
 	OutboundProvisioningIDPs []interface{} `json:"outboundProvisioningIdps"`
-}
-
-func (m *ApplicationManager) List(ctx context.Context) (a *ApplicationList, err error) {
-	err = m.management.Request(ctx, "GET", m.management.URI("applications"), &a)
-	return
-}
-
-func (m *ApplicationManager) Create(ctx context.Context, application Application) (a *Application, err error) {
-	err = m.management.Request(ctx, "POST", m.management.URI("applications"), application)
-	return
 }
