@@ -1,6 +1,13 @@
-## Experimental CLI app for WSO2 Identity Server / Asgardeo Management 
+<div align="center">
 
-is-cli is a command-line interface tool for managing and interacting with Identity Server/Asgardeo integrations.
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="/docs/is-cli.png">
+  <img alt="is cli logo" src="/docs/is-cli.png" width="50%" height="50%">
+</picture>
+
+is-cli is a experimental cli app for managing and interacting with Identity Server/Asgardeo integrations.
+
+</div>
 
 ## Features
 - Authenticate as a machine (Client Credentials) or User (Device Flow)
