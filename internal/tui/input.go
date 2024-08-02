@@ -16,9 +16,6 @@ type Input interface {
 	View() string
 }
 
-// We need to have a wrapper for our bubbles as they don't currently implement the tea.Model interface
-// textinput, textarea
-
 type shortAnswerField struct {
 	textinput textinput.Model
 }

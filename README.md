@@ -4,7 +4,10 @@ is-cli is a command-line interface tool for managing and interacting with Identi
 
 ## Features
 - Authenticate as a machine (Client Credentials) or User (Device Flow)
-- Manage applications (only list, create yet)
+- Manage applications
+  - List applications
+  - Create applications (Support Templates)
+  - Delete applications
 - Interactive mode
 - Keychain support for storing credentials
 - Logging
@@ -58,6 +61,7 @@ Here are some example commands:
 is-cli login
 is-cli applications list
 is-cli applications create
+is-cli applications delete <app-id>
 ```
 
 ![Screenshot 2024-08-02 at 15 41 42](https://github.com/user-attachments/assets/c76a1b8e-740a-4ad7-a014-1a880b5a4f16)

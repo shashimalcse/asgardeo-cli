@@ -9,8 +9,12 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shashimalcse/is-cli/internal/core"
-	"github.com/shashimalcse/is-cli/internal/management"
 	"github.com/shashimalcse/is-cli/internal/tui"
+)
+
+var (
+	OIDC = "OIDC"
+	SAML = "OIDC"
 )
 
 type ApplicationCreateState int
@@ -55,7 +59,6 @@ func NewApplicationCreateModel(cli *core.CLI) *ApplicationCreateModel {
 		cli:              cli,
 		state:            StateInitiated,
 		applicationTypes: newApplicationTypesList(),
-		questions:        initQuestions(),
 	}
 }
 
@@ -72,12 +75,22 @@ func newApplicationTypesList() list.Model {
 	return l
 }
 
-func initQuestions() []tui.Question {
-	return []tui.Question{
-		tui.NewQuestion("Name", "Name", tui.ShortQuestion),
-		tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
-		tui.NewQuestion("Are you sure you want to create the application? (y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
+func (m *ApplicationCreateModel) initQuestions() []tui.Question {
+	if m.applicationType == SinglePage {
+		m.questions = []tui.Question{
+			tui.NewQuestion("Name", "Name", tui.ShortQuestion),
+			tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
+			tui.NewQuestion("Are you sure you want to create the application? (y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
+		}
+	} else if m.applicationType == Traditional {
+		m.questions = []tui.Question{
+			tui.NewQuestion("Name", "Name", tui.ShortQuestion),
+			tui.NewQuestion("Protocol (OIDC/SAML)", "Protocol (OIDC/SAML) default : OIDC", tui.ShortQuestion),
+			tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
+			tui.NewQuestion("Are you sure you want to create the application? (Y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
+		}
 	}
+	return nil
 }
 
 func (m ApplicationCreateModel) Init() tea.Cmd {
@@ -115,22 +128,33 @@ func (m ApplicationCreateModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.C
 		i, ok := m.applicationTypes.SelectedItem().(tui.Item)
 		if ok {
 			m.applicationType = ApplicationType(i.Title())
+			m.initQuestions()
 			m.state = StateTypeSelected
 		}
 	case StateTypeSelected:
-		switch m.applicationType {
-		case SinglePage:
-			currentQuestion := &m.questions[m.currentQuestionIndex]
-			currentQuestion.Answer = currentQuestion.Input.Value()
-			if m.currentQuestionIndex == len(m.questions)-2 {
-				m.state = StateQuestionsCompleted
-				m.NextQuestion()
-				m.questions[m.currentQuestionIndex].Input.SetValue("")
-			} else {
-				m.NextQuestion()
+		currentQuestion := &m.questions[m.currentQuestionIndex]
+		currentQuestion.Answer = currentQuestion.Input.Value()
+		if m.currentQuestionIndex == len(m.questions)-2 {
+			m.state = StateQuestionsCompleted
+			m.NextQuestion()
+			m.questions[m.currentQuestionIndex].Input.SetValue("")
+		} else {
+			if m.questions[m.currentQuestionIndex].Question == "Protocol (OIDC/SAML)" {
+				protocol := strings.ToUpper(m.questions[m.currentQuestionIndex].Answer)
+				if protocol == OIDC || protocol == SAML {
+
+				} else {
+					if protocol == "" {
+						m.questions[m.currentQuestionIndex].Answer = OIDC
+					} else {
+						m.output = "Invalid protocol. Please enter OIDC or SAML"
+						return m, tea.Quit
+					}
+				}
 			}
-			return m, currentQuestion.Input.Blur
+			m.NextQuestion()
 		}
+		return m, currentQuestion.Input.Blur
 	case StateQuestionsCompleted:
 		confirmation := strings.ToLower(m.questions[m.currentQuestionIndex].Input.Value())
 		if (confirmation == "y") || (confirmation == "Y" || confirmation == "") {
@@ -176,10 +200,8 @@ func (m ApplicationCreateModel) View() string {
 }
 
 func (m *ApplicationCreateModel) renderQuestions() string {
-	if m.applicationType != SinglePage {
-		return "Not supported yet!"
-	}
 	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Creating a new %s\n\n", m.applicationType))
 	for i, q := range m.questions[:m.currentQuestionIndex] {
 		sb.WriteString(fmt.Sprintf("%s: %s\n", q.Question, q.Answer))
 		if i == len(m.questions)-1 {
@@ -204,63 +226,87 @@ func (m *ApplicationCreateModel) NextQuestion() {
 
 func (m ApplicationCreateModel) createApplications() error {
 
+	application := map[string]interface{}{
+		"name": m.questions[0].Answer,
+		"advancedConfigurations": map[string]interface{}{
+			"discoverableByEndUsers": false,
+			"skipLogoutConsent":      true,
+			"skipLoginConsent":       true,
+		},
+		"authenticationSequence": map[string]interface{}{
+			"type": "DEFAULT",
+			"steps": []interface{}{
+				map[string]interface{}{
+					"id": 1,
+					"options": []interface{}{
+						map[string]interface{}{
+							"idp":           "LOCAL",
+							"authenticator": "basic",
+						},
+					},
+				},
+			},
+		},
+		"claimConfiguration": map[string]interface{}{
+			"dialect": "LOCAL",
+			"requestedClaims": []interface{}{
+				map[string]interface{}{
+					"claim": map[string]interface{}{
+						"uri": "http://wso2.org/claims/username",
+					},
+				},
+			},
+		},
+		"associatedRoles": map[string]interface{}{
+			"allowedAudience": "APPLICATION",
+			"roles":           []string{},
+		},
+	}
+
 	if m.applicationType == SinglePage {
-		application := management.Application{
-			Name:       m.questions[0].Answer,
-			TemplateID: "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7",
-			AdvancedConfig: management.AdvancedConfigurations{
-				DiscoverableByEndUsers: false,
-				SkipLoginConsent:       true,
-				SkipLogoutConsent:      true,
-			},
-			AssociatedRoles: management.AssociatedRoles{
-				AllowedAudience: "APPLICATION",
-				Roles:           []management.AssociatedRole{},
-			},
-			AuthenticationSeq: management.AuthenticationSequence{
-				Type: "DEFAULT",
-				Steps: []management.Step{{
-					ID: 1,
-					Options: []management.Options{
-						{IDP: "LOCAL", Authenticator: "basic"},
-					},
+		application["templateId"] = "6a90e4b0-fbff-42d7-bfde-1efd98f07cd7"
+		application["inboundProtocolConfiguration"] = map[string]interface{}{
+			"oidc": map[string]interface{}{
+				"accessToken": map[string]interface{}{
+					"applicationAccessTokenExpiryInSeconds": 3600,
+					"bindingType":                           "sso-session",
+					"revokeTokensWhenIDPSessionTerminated":  true,
+					"type":                                  "Default",
+					"userAccessTokenExpiryInSeconds":        3600,
+					"validateTokenBinding":                  false,
 				},
+				"allowedOrigins": []string{m.questions[1].Answer},
+				"callbackURLs":   []string{m.questions[1].Answer},
+				"grantTypes":     []string{"authorization_code", "refresh_token"},
+				"pkce": map[string]interface{}{
+					"mandatory":                      true,
+					"supportPlainTransformAlgorithm": false,
 				},
-			},
-			ClaimConfiguration: management.ClaimConfiguration{
-				Dialect: "LOCAL",
-				RequestedClaims: []interface{}{
-					map[string]interface{}{
-						"claim": map[string]interface{}{"uri": "http://wso2.org/claims/username"},
-					},
-				},
-			},
-			InboundProtocolConfiguration: management.InboundProtocolConfiguration{
-				OIDC: management.OIDC{
-					AccessToken: management.AccessToken{
-						ApplicationAccessTokenExpiryInSeconds: 3600,
-						BindingType:                           "sso-session",
-						RevokeTokensWhenIDPSessionTerminated:  true,
-						Type:                                  "Default",
-						UserAccessTokenExpiryInSeconds:        3600,
-						ValidateTokenBinding:                  false,
-					},
-					AllowedOrigins: []string{m.questions[1].Answer},
-					CallbackURLs:   []string{m.questions[1].Answer},
-					GrantTypes:     []string{"authorization_code", "refresh_token"},
-					PKCE: management.PKCE{
-						Mandatory:                      true,
-						SupportPlainTransformAlgorithm: false,
-					},
-					PublicClient: true,
-					RefreshToken: management.RefreshToken{
-						ExpiryInSeconds:   86400,
-						RenewRefreshToken: true,
-					},
+				"publicClient": true,
+				"refreshToken": map[string]interface{}{
+					"expiryInSeconds":   86400,
+					"renewRefreshToken": true,
 				},
 			},
 		}
-		_, err := m.cli.API.Application.Create(context.Background(), application)
+	} else if m.applicationType == Traditional {
+		application["templateId"] = "b9c5e11e-fc78-484b-9bec-015d247561b8"
+		if m.questions[1].Answer == OIDC {
+			application["inboundProtocolConfiguration"] = map[string]interface{}{
+				"oidc": map[string]interface{}{
+					"allowedOrigins": []string{},
+					"callbackURLs":   []string{m.questions[2].Answer},
+					"grantTypes":     []string{"authorization_code"},
+					"publicClient":   false,
+					"refreshToken": map[string]interface{}{
+						"expiryInSeconds": 86400,
+					},
+				},
+			}
+		}
+	}
+	err := m.cli.API.Application.Create(context.Background(), application)
+	if err != nil {
 		return err
 	}
 	return nil

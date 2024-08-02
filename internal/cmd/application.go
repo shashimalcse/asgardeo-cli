@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -18,6 +19,7 @@ func applicationsCmd(cli *core.CLI) *cobra.Command {
 
 	cmd.AddCommand(listApplicationsCmd(cli))
 	cmd.AddCommand(createApplicationsCmd(cli))
+	cmd.AddCommand(deleteApplicationsCmd(cli))
 	return cmd
 }
 
@@ -73,5 +75,38 @@ func createApplicationsCmd(cli *core.CLI) *cobra.Command {
 		},
 	}
 
+	return cmd
+}
+
+type ApplicationDeleteInputs struct {
+	ApplicationId string
+}
+
+func deleteApplicationsCmd(cli *core.CLI) *cobra.Command {
+	var inputs ApplicationDeleteInputs
+	cmd := &cobra.Command{
+		Use:     "delete",
+		Aliases: []string{"rm"},
+		Args:    cobra.MaximumNArgs(1),
+		Short:   "Delete applications",
+		Example: `is applications delete
+  is applications rm`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				inputs.ApplicationId = args[0]
+			}
+			if inputs.ApplicationId == "" {
+				return fmt.Errorf("application ID is required")
+			}
+			fmt.Printf("Deleting application with ID: %s\n", inputs.ApplicationId)
+			err := cli.API.Application.Delete(context.Background(), inputs.ApplicationId)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&inputs.ApplicationId, "app-id", "", "Application ID")
 	return cmd
 }

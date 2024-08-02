@@ -29,7 +29,6 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 	cmd.Flags().StringVar(&inputs.ClientID, "client-id", "", "Client ID")
 	cmd.Flags().StringVar(&inputs.ClientSecret, "client-secret", "", "Client Secret")
 	cmd.Flags().StringVar(&inputs.Tenant, "tenant", "", "Tenant")
-	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 	cmd.MarkFlagsRequiredTogether("client-id", "client-secret", "tenant")
 
 	return cmd

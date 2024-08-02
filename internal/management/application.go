@@ -9,8 +9,13 @@ func (m *ApplicationManager) List(ctx context.Context) (a *ApplicationList, err 
 	return
 }
 
-func (m *ApplicationManager) Create(ctx context.Context, application Application) (a *Application, err error) {
+func (m *ApplicationManager) Create(ctx context.Context, application map[string]interface{}) (err error) {
 	err = m.management.Request(ctx, "POST", m.management.URI("applications"), application)
+	return
+}
+
+func (m *ApplicationManager) Delete(ctx context.Context, id string) (err error) {
+	err = m.management.Request(ctx, "DELETE", m.management.URI("applications", id), nil)
 	return
 }
 
