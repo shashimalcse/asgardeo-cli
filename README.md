@@ -62,10 +62,23 @@ source ~/.zshrc  # or ~/.bash_profile for Bash
 
 ## Usage
 
+### Authenticating to Your Tenant
+
+Authenticating to your Identity Server/ Asgardeo tenant is required for most functions of the CLI. It can be initiated by running:
+```
+is-cli login
+```
+
+There are two ways to authenticate:
+
+As a user - Recommended when invoking on a personal machine or other interactive environment. Facilitated by device authorization flow.
+As a machine - Recommended when running on a server or non-interactive environments (ex: CI). Facilitated by client credentials flow.
+
+> Authenticating as a user is not supported for Asgardeo tenants.
+
 Here are some example commands:
 
 ```
-is-cli login
 is-cli applications list
 is-cli applications create
 is-cli applications delete <app-id>
