@@ -19,11 +19,6 @@ is-cli is a experimental cli app for managing and interacting with Identity Serv
 - Keychain support for storing credentials
 - Logging
 
-## Stack
-- Golang
-- Cobra
-- Bubbletea (for interactive mode)
-
 ## Installation
 
 ### Prerequisites
