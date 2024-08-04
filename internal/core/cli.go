@@ -6,7 +6,6 @@ import (
 
 	"github.com/shashimalcse/is-cli/internal/api"
 	"github.com/shashimalcse/is-cli/internal/config"
-	"github.com/shashimalcse/is-cli/internal/management"
 	"go.uber.org/zap"
 )
 
@@ -37,11 +36,11 @@ func (c *CLI) SetupWithAuthentication(ctx context.Context) error {
 	if err := c.checkAndRefreshAuth(ctx); err != nil {
 		return fmt.Errorf("authentication check failed: %w", err)
 	}
-	client, err := management.New(c.Config, c.Tenant)
+	api, err := api.NewAPI(c.Config, c.Tenant)
 	if err != nil {
-		return fmt.Errorf("failed to initialize management client: %w", err)
+		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
-	c.API = api.NewAPI(client)
+	c.API = api
 	return nil
 }
 

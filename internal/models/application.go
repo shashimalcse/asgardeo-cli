@@ -1,23 +1,4 @@
-package management
-
-import "context"
-
-type ApplicationManager manager
-
-func (m *ApplicationManager) List(ctx context.Context) (a *ApplicationList, err error) {
-	err = m.management.Request(ctx, "GET", m.management.URI("applications"), &a)
-	return
-}
-
-func (m *ApplicationManager) Create(ctx context.Context, application map[string]interface{}) (err error) {
-	err = m.management.Request(ctx, "POST", m.management.URI("applications"), application)
-	return
-}
-
-func (m *ApplicationManager) Delete(ctx context.Context, id string) (err error) {
-	err = m.management.Request(ctx, "DELETE", m.management.URI("applications", id), nil)
-	return
-}
+package models
 
 type Application struct {
 	ID                           string                       `json:"id,omitempty"`

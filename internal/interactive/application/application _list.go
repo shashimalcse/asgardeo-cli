@@ -10,7 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/shashimalcse/is-cli/internal/core"
-	"github.com/shashimalcse/is-cli/internal/management"
+	"github.com/shashimalcse/is-cli/internal/models"
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
 
@@ -78,7 +78,7 @@ func (m ApplicationListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
 		}
-	case *management.ApplicationList:
+	case *models.ApplicationList:
 		applications := []list.Item{}
 		for _, app := range msg.Applications {
 			applications = append(applications, tui.NewItem(app.Name, app.ID))

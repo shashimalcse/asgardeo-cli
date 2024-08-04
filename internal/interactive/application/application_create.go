@@ -14,7 +14,7 @@ import (
 
 var (
 	OIDC = "OIDC"
-	SAML = "OIDC"
+	SAML = "SAML"
 )
 
 type ApplicationCreateState int
@@ -31,11 +31,12 @@ const (
 type ApplicationType string
 
 const (
-	SinglePage  ApplicationType = "Single-Page Application"
-	Traditional ApplicationType = "Traditional Web Application"
-	Mobile      ApplicationType = "Mobile Application"
-	Standard    ApplicationType = "Standard-Based Application"
-	M2M         ApplicationType = "M2M Application"
+	SinglePage       ApplicationType = "Single-Page Application"
+	Traditional_OIDC ApplicationType = "Traditional Web Application OIDC"
+	Traditional_SAML ApplicationType = "Traditional Web Application SAML"
+	Mobile           ApplicationType = "Mobile Application"
+	Standard         ApplicationType = "Standard-Based Application"
+	M2M              ApplicationType = "M2M Application"
 )
 
 type ApplicationCreateModel struct {
@@ -65,7 +66,7 @@ func NewApplicationCreateModel(cli *core.CLI) *ApplicationCreateModel {
 func newApplicationTypesList() list.Model {
 	items := []list.Item{
 		tui.NewItemWithKey("single_page", string(SinglePage), "A web application that runs application logic in the browser."),
-		tui.NewItemWithKey("traditional", string(Traditional), "A web application that runs application logic on the server."),
+		tui.NewItemWithKey("traditional", string(Traditional_OIDC), "A web application that runs application logic on the server."),
 		tui.NewItemWithKey("mobile", string(Mobile), "Applications developed to target mobile devices."),
 		tui.NewItemWithKey("standard", string(Standard), "Applications built using standard protocols."),
 		tui.NewItemWithKey("m2m", string(M2M), "Applications tailored for Machine to Machine communication."),
@@ -82,11 +83,19 @@ func (m *ApplicationCreateModel) initQuestions() []tui.Question {
 			tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
 			tui.NewQuestion("Are you sure you want to create the application? (y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
 		}
-	} else if m.applicationType == Traditional {
+	} else if m.applicationType == Traditional_OIDC {
 		m.questions = []tui.Question{
 			tui.NewQuestion("Name", "Name", tui.ShortQuestion),
 			tui.NewQuestion("Protocol (OIDC/SAML)", "Protocol (OIDC/SAML) default : OIDC", tui.ShortQuestion),
 			tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
+			tui.NewQuestion("Are you sure you want to create the application? (Y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
+		}
+	} else if m.applicationType == Traditional_SAML {
+		m.questions = []tui.Question{
+			tui.NewQuestion("Name", "Name", tui.ShortQuestion),
+			tui.NewQuestion("Protocol (OIDC/SAML)", "Protocol (OIDC/SAML) default : SAML", tui.ShortQuestion),
+			tui.NewQuestion("Issuer", "Issuer", tui.ShortQuestion),
+			tui.NewQuestion("Assertion consumer service URLs", "Assertion consumer service URLs", tui.ShortQuestion),
 			tui.NewQuestion("Are you sure you want to create the application? (Y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
 		}
 	}
@@ -140,17 +149,21 @@ func (m ApplicationCreateModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.C
 			m.questions[m.currentQuestionIndex].Input.SetValue("")
 		} else {
 			if m.questions[m.currentQuestionIndex].Question == "Protocol (OIDC/SAML)" {
-				protocol := strings.ToUpper(m.questions[m.currentQuestionIndex].Answer)
-				if protocol == OIDC || protocol == SAML {
-
-				} else {
-					if protocol == "" {
-						m.questions[m.currentQuestionIndex].Answer = OIDC
-					} else {
-						m.output = "Invalid protocol. Please enter OIDC or SAML"
-						return m, tea.Quit
-					}
+				protocol := strings.TrimSpace(m.questions[m.currentQuestionIndex].Answer)
+				protocol = strings.ToUpper(protocol)
+				switch protocol {
+				case OIDC:
+					m.applicationType = Traditional_OIDC
+				case SAML:
+					m.applicationType = Traditional_SAML
+				case "":
+					m.applicationType = Traditional_OIDC
+					m.questions[m.currentQuestionIndex].Answer = protocol
+				default:
+					m.output = "Invalid protocol. Please enter OIDC or SAML"
+					return m, tea.Quit
 				}
+				m.initQuestions()
 			}
 			m.NextQuestion()
 		}
@@ -247,16 +260,6 @@ func (m ApplicationCreateModel) createApplications() error {
 				},
 			},
 		},
-		"claimConfiguration": map[string]interface{}{
-			"dialect": "LOCAL",
-			"requestedClaims": []interface{}{
-				map[string]interface{}{
-					"claim": map[string]interface{}{
-						"uri": "http://wso2.org/claims/username",
-					},
-				},
-			},
-		},
 		"associatedRoles": map[string]interface{}{
 			"allowedAudience": "APPLICATION",
 			"roles":           []string{},
@@ -289,9 +292,19 @@ func (m ApplicationCreateModel) createApplications() error {
 				},
 			},
 		}
-	} else if m.applicationType == Traditional {
-		application["templateId"] = "b9c5e11e-fc78-484b-9bec-015d247561b8"
+		application["claimConfiguration"] = map[string]interface{}{
+			"dialect": "LOCAL",
+			"requestedClaims": []interface{}{
+				map[string]interface{}{
+					"claim": map[string]interface{}{
+						"uri": "http://wso2.org/claims/username",
+					},
+				},
+			},
+		}
+	} else if m.applicationType == Traditional_OIDC {
 		if m.questions[1].Answer == OIDC {
+			application["templateId"] = "b9c5e11e-fc78-484b-9bec-015d247561b8"
 			application["inboundProtocolConfiguration"] = map[string]interface{}{
 				"oidc": map[string]interface{}{
 					"allowedOrigins": []string{},
@@ -300,6 +313,38 @@ func (m ApplicationCreateModel) createApplications() error {
 					"publicClient":   false,
 					"refreshToken": map[string]interface{}{
 						"expiryInSeconds": 86400,
+					},
+				},
+			}
+			application["claimConfiguration"] = map[string]interface{}{
+				"dialect": "LOCAL",
+				"requestedClaims": []interface{}{
+					map[string]interface{}{
+						"claim": map[string]interface{}{
+							"uri": "http://wso2.org/claims/username",
+						},
+					},
+				},
+			}
+		}
+		if m.questions[1].Answer == SAML {
+			application["templateId"] = "776a73da-fd8e-490b-84ff-93009f8ede85"
+			application["inboundProtocolConfiguration"] = map[string]interface{}{
+				"saml": map[string]interface{}{
+					"manualConfiguration": map[string]interface{}{
+						"issuer":                "https://localhost:9443/oauth2/token",
+						"assertionConsumerUrls": []string{},
+						"attributeProfile": map[string]interface{}{
+							"alwaysIncludeAttributesInResponse": true,
+							"enabled":                           true,
+						},
+						"singleLogoutProfile": map[string]interface{}{
+							"enabled":      true,
+							"logoutMethod": "BACKCHANNEL",
+							"idpInitiatedSingleLogout": map[string]interface{}{
+								"enabled": false,
+							},
+						},
 					},
 				},
 			}
