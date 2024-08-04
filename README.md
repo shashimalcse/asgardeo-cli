@@ -5,7 +5,7 @@
   <img alt="is cli logo" src="/docs/is-cli.png" width="50%" height="50%">
 </picture>
 
-is-cli is a experimental cli app for managing and interacting with Identity Server/Asgardeo integrations.
+is-cli is a experimental (non-official) cli app for managing and interacting with Identity Server/Asgardeo integrations.
 
 </div>
 
