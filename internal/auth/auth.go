@@ -119,20 +119,15 @@ func GetAccessTokenFromClientCreds(httpClient *http.Client, args ClientCredentia
 	httpClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-
 	data := url.Values{
 		"grant_type": {"client_credentials"},
 		"scope":      {"SYSTEM"},
 	}
-
 	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.asgardeo.io/t/%s/oauth2/token", args.Tenant), strings.NewReader(data.Encode()))
 	if err != nil {
 		return Result{}, err
 	}
-
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	// Add the Authorization header with the base64 encoded client ID and client secret
 	auth := args.ClientID + ":" + args.ClientSecret
 	encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
 	req.Header.Add("Authorization", "Basic "+encodedAuth)
@@ -140,6 +135,14 @@ func GetAccessTokenFromClientCreds(httpClient *http.Client, args ClientCredentia
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return Result{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusUnauthorized {
+			return Result{}, fmt.Errorf("failed to authenticate. please check your credentials")
+		} else if resp.StatusCode == http.StatusNotFound {
+			return Result{}, fmt.Errorf("failed to authenticate. tenant not found")
+		}
+		return Result{}, fmt.Errorf("failed to authenticate")
 	}
 	defer resp.Body.Close()
 	var result Result

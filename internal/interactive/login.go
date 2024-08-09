@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/browser"
 	"github.com/shashimalcse/is-cli/internal/auth"
 	"github.com/shashimalcse/is-cli/internal/core"
+	"github.com/shashimalcse/is-cli/internal/models"
 	"github.com/shashimalcse/is-cli/internal/tui"
 )
 
@@ -51,6 +52,7 @@ type LoginModel struct {
 	state               AuthenticateState
 	stateMessage        string
 	deviceFlowState     auth.State
+	outputResult        models.OutputResult
 }
 
 // NewLoginModel creates and initializes a new LoginModel
@@ -140,6 +142,11 @@ func (m LoginModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					if err != nil {
 						m.state = StateDeviceFlowError
 						m.stateMessage = err.Error()
+						m.outputResult = models.OutputResult{
+							Message: "Error getting device code: " + err.Error(),
+							IsError: true,
+						}
+						return m, tea.Quit
 					} else {
 						m.state = StateDeviceFlowCodeReceived
 						if err = browser.OpenURL(state.VerificationURIComplete); err != nil {
@@ -164,10 +171,18 @@ func (m LoginModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					m.state = StateClientCredentialsError
 					m.stateMessage = err.Error()
+					m.outputResult = models.OutputResult{
+						Message: err.Error(),
+						IsError: true,
+					}
 				} else {
 					m.state = StateClientCredentialsCompleted
+					m.outputResult = models.OutputResult{
+						Message: "Successfully authenticated as a machine",
+						IsError: false,
+					}
 				}
-				return m, nil
+				return m, tea.Quit
 			} else {
 				m.NextQuestion()
 			}
@@ -272,4 +287,8 @@ func (m LoginModel) getDeviceCode() (auth.State, error) {
 func (m LoginModel) getAccessTokenFromDeviceCode(state auth.State) error {
 
 	return core.GetAccessTokenFromDeviceCode(m.cli, state)
+}
+
+func (m LoginModel) GetOutputValue() models.OutputResult {
+	return m.outputResult
 }

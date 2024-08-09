@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shashimalcse/is-cli/internal/core"
 	"github.com/shashimalcse/is-cli/internal/interactive"
+	"github.com/shashimalcse/is-cli/internal/models"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +21,13 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Determine if we should use interactive mode
 			if !inputs.IsLoggingInAsAMachine() {
-				return runInteractiveLogin(cli, verbose)
+				result := runInteractiveLogin(cli)
+				if result.IsError {
+					return fmt.Errorf(result.Message)
+				} else {
+					fmt.Println(result.Message)
+					return nil
+				}
 			}
 			return runMachineLogin(cli, inputs, verbose)
 		},
@@ -34,14 +41,21 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 	return cmd
 }
 
-func runInteractiveLogin(cli *core.CLI, verbose bool) error {
+func runInteractiveLogin(cli *core.CLI) models.OutputResult {
 	m := interactive.NewLoginModel(cli)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
-	if _, err := p.Run(); err != nil {
-		return fmt.Errorf("error running interactive login: %w", err)
+	m1, err := p.Run()
+	if err != nil {
+		return models.OutputResult{
+			Message: fmt.Sprintf("Interactive login failed: %v", err),
+			IsError: true,
+		}
 	}
-	return nil
+	if m2, ok := m1.(interactive.LoginModel); ok {
+		return m2.GetOutputValue()
+	}
+	return models.OutputResult{}
 }
 
 func runMachineLogin(cli *core.CLI, inputs core.LoginInputs, verbose bool) error {
