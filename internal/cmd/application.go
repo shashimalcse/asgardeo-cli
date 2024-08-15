@@ -13,7 +13,7 @@ import (
 
 func applicationsCmd(cli *core.CLI) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "applications",
+		Use:   "apps",
 		Short: "Manage applications",
 	}
 
@@ -28,9 +28,9 @@ func listApplicationsCmd(cli *core.CLI) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Args:    cobra.NoArgs,
-		Short:   "List your applications",
-		Example: `asgardeo applications list
-  asgardeo applications ls`,
+		Short:   "List your apps",
+		Example: `asgardeo apps list
+  asgardeo apps ls`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			m := interactive.NewApplicationListModel(cli)
@@ -56,8 +56,8 @@ func createApplicationsCmd(cli *core.CLI) *cobra.Command {
 		Aliases: []string{"c"},
 		Args:    cobra.NoArgs,
 		Short:   "Create an application",
-		Example: `asgardeo applications create
-  asgardeo applications c`,
+		Example: `asgardeo apps create
+  asgardeo apps c`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			m := interactive.NewApplicationCreateModel(cli)
@@ -89,8 +89,8 @@ func deleteApplicationsCmd(cli *core.CLI) *cobra.Command {
 		Aliases: []string{"rm"},
 		Args:    cobra.MaximumNArgs(1),
 		Short:   "Delete applications",
-		Example: `asgardeo applications delete
-  asgardeo applications rm`,
+		Example: `asgardeo apps delete
+  asgardeo apps rm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				inputs.ApplicationId = args[0]
