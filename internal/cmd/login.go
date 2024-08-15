@@ -67,7 +67,7 @@ func runMachineLogin(cli *core.CLI, inputs core.LoginInputs, verbose bool) error
 		return err
 	}
 
-	if err := core.RunLoginAsMachine(inputs, cli); err != nil {
+	if err := core.AuthenticateWithClientCredentials(inputs, cli); err != nil {
 		return fmt.Errorf("failed to login as machine: %w", err)
 	}
 

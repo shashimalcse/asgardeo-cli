@@ -279,7 +279,7 @@ func (m *LoginModel) NextQuestion() {
 
 func (m LoginModel) runLoginAsMachine() error {
 
-	err := core.RunLoginAsMachine(
+	err := core.AuthenticateWithClientCredentials(
 		core.LoginInputs{
 			Tenant:       m.questions[0].Answer,
 			ClientID:     m.questions[1].Answer,

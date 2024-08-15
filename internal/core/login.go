@@ -19,7 +19,7 @@ func (i *LoginInputs) IsLoggingInAsAMachine() bool {
 	return i.ClientID != "" || i.ClientSecret != "" || i.Tenant != ""
 }
 
-func RunLoginAsMachine(inputs LoginInputs, cli *CLI) error {
+func AuthenticateWithClientCredentials(inputs LoginInputs, cli *CLI) error {
 
 	result, err := auth.AuthenticateWithClientCredentials(http.DefaultClient, auth.ClientCredentials{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant})
 	if err != nil {
