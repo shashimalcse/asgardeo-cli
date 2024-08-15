@@ -16,8 +16,9 @@ import (
 
 var (
 	// Login options
-	AS_A_MACHINE = "as a machine"
-	AS_A_USER    = "as a user"
+	AS_A_MACHINE        = "as a machine"
+	AS_A_USER           = "as a user"
+	DeviceFlowSupported = false
 )
 
 // AuthenticateState represents the current state of the authentication process
@@ -116,6 +117,14 @@ func (m LoginModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		i, ok := m.loginOptions.SelectedItem().(tui.Item)
 		if ok {
 			m.loginOptionChosen = i.Title()
+			if m.loginOptionChosen == AS_A_USER && !DeviceFlowSupported {
+				m.state = StateDeviceFlowError
+				m.outputResult = models.OutputResult{
+					Message: "Device flow is not supported yet! Please use client credentials flow.",
+					IsError: false,
+				}
+				return m, tea.Quit
+			}
 			m.isLoginOptionChosen = true
 			m.initQuestions()
 		}
