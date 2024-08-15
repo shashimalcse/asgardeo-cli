@@ -28,7 +28,7 @@ func NewCLI(cfg *config.Config, logger *zap.Logger) *CLI {
 // SetupWithAuthentication sets up the CLI with authentication
 func (c *CLI) SetupWithAuthentication(ctx context.Context) error {
 	if err := c.Config.Validate(); err != nil {
-		return fmt.Errorf("config validation failed: %w", err)
+		return err
 	}
 	if c.Tenant == "" {
 		c.Tenant = c.Config.DefaultTenant

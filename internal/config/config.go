@@ -12,7 +12,7 @@ import (
 )
 
 var ErrConfigFileMissing = errors.New("config.json file is missing")
-var ErrNoAuthenticatedTenants = errors.New("not logged in. Try `is login`")
+var ErrNoAuthenticatedTenants = errors.New("not logged in to any tenant. Please authenticate using `asgardeo login`")
 
 type Config struct {
 	mu            sync.RWMutex
