@@ -28,8 +28,8 @@ Build, manage and test your Identity Server/Asgardeo integrations from the comma
 `
 
 func Execute() {
-	cfg := config.NewConfig()
 	logger, err := configLogger()
+	cfg := config.NewConfig(logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing logger: %v\n", err)
 		os.Exit(1)

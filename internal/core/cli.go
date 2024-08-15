@@ -36,7 +36,7 @@ func (c *CLI) SetupWithAuthentication(ctx context.Context) error {
 	if err := c.checkAndRefreshAuth(ctx); err != nil {
 		return fmt.Errorf("authentication check failed: %w", err)
 	}
-	api, err := api.NewAPI(c.Config, c.Tenant)
+	api, err := api.NewAPI(c.Config, c.Tenant, c.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
 	}

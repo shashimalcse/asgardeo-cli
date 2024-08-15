@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 var ErrConfigFileMissing = errors.New("config.json file is missing")
@@ -19,11 +21,13 @@ type Config struct {
 	DefaultTenant string            `json:"default_tenant"`
 	Tenants       map[string]Tenant `json:"tenants"`
 	initialized   bool
+	logger        *zap.Logger
 }
 
 // NewConfig creates a new Config instance
-func NewConfig() *Config {
+func NewConfig(logger *zap.Logger) *Config {
 	return &Config{
+		logger:  logger,
 		path:    defaultPath(),
 		Tenants: make(map[string]Tenant),
 	}
@@ -31,17 +35,15 @@ func NewConfig() *Config {
 
 // Initialize loads the configuration from disk
 func (c *Config) Initialize() error {
+	c.logger.Debug("Initializing config")
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	if c.initialized {
 		return nil
 	}
-
 	if err := c.loadFromDisk(); err != nil && !errors.Is(err, ErrConfigFileMissing) {
 		return fmt.Errorf("failed to initialize config: %w", err)
 	}
-
 	c.initialized = true
 	return nil
 }
@@ -51,10 +53,8 @@ func (c *Config) Validate() error {
 	if err := c.Initialize(); err != nil {
 		return err
 	}
-
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
 	if len(c.Tenants) == 0 {
 		return ErrNoAuthenticatedTenants
 	}
@@ -68,7 +68,6 @@ func (c *Config) Validate() error {
 func (c *Config) IsLoggedInWithTenant(tenantName string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
 	if tenantName == "" {
 		tenantName = c.DefaultTenant
 	}
@@ -81,9 +80,9 @@ func (c *Config) IsLoggedInWithTenant(tenantName string) bool {
 func (c *Config) GetTenant(tenantName string) (Tenant, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
 	tenant, ok := c.Tenants[tenantName]
 	if !ok {
+		c.logger.Error("Tenant not found", zap.String("tenant", tenantName))
 		return Tenant{}, fmt.Errorf("tenant not found: %s", tenantName)
 	}
 	return tenant, nil
@@ -93,7 +92,6 @@ func (c *Config) GetTenant(tenantName string) (Tenant, error) {
 func (c *Config) AddTenant(tenant Tenant) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	if c.DefaultTenant == "" {
 		c.DefaultTenant = tenant.Name
 	}
@@ -105,7 +103,6 @@ func (c *Config) AddTenant(tenant Tenant) error {
 func (c *Config) RemoveTenant(tenant string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	delete(c.Tenants, tenant)
 	if c.DefaultTenant == tenant {
 		return c.setDefaultTenant()
@@ -117,8 +114,8 @@ func (c *Config) RemoveTenant(tenant string) error {
 func (c *Config) SetDefaultTenant(tenantName string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	if _, ok := c.Tenants[tenantName]; !ok {
+		c.logger.Error("Tenant not found while setting de=fault tenant", zap.String("tenant", tenantName))
 		return fmt.Errorf("tenant not found: %s", tenantName)
 	}
 	c.DefaultTenant = tenantName
@@ -136,14 +133,13 @@ func (c *Config) setDefaultTenant() error {
 func (c *Config) saveToDisk() error {
 	dir := filepath.Dir(c.path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
+		c.logger.Error("Failed to create config directory", zap.Error(err))
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
-
 	buffer, err := json.MarshalIndent(c, "", "    ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-
 	if err := os.WriteFile(c.path, buffer, 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
@@ -156,9 +152,9 @@ func (c *Config) loadFromDisk() error {
 		if os.IsNotExist(err) {
 			return ErrConfigFileMissing
 		}
+		c.logger.Error("Failed to read config file", zap.Error(err))
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
-
 	if err := json.Unmarshal(buffer, c); err != nil {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}

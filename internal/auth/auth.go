@@ -116,9 +116,6 @@ func GetAccessTokenFromDeviceCode(httpClient *http.Client, state State) (Result,
 
 func GetAccessTokenFromClientCreds(httpClient *http.Client, args ClientCredentials) (Result, error) {
 
-	httpClient.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
 	data := url.Values{
 		"grant_type": {"client_credentials"},
 		"scope":      {"SYSTEM"},
