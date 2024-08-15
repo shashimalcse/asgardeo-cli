@@ -3,7 +3,7 @@
 # Go parameters
 GOCMD=go
 GOBUILD=$(GOCMD) build
-BINARY_NAME=is-cli
+BINARY_NAME=asgardeo
 MAIN_PATH=.
 
 # Installation directory (should be in your PATH)

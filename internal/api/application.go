@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 
-	"github.com/shashimalcse/is-cli/internal/models"
+	"github.com/shashimalcse/asgardeo-cli/internal/models"
 )
 
 type applicationAPI struct {

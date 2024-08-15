@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/shashimalcse/is-cli/internal/core"
-	"github.com/shashimalcse/is-cli/internal/tui"
+	"github.com/shashimalcse/asgardeo-cli/internal/core"
+	"github.com/shashimalcse/asgardeo-cli/internal/tui"
 )
 
 var (

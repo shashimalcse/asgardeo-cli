@@ -1,4 +1,4 @@
-module github.com/shashimalcse/is-cli
+module github.com/shashimalcse/asgardeo-cli
 
 go 1.22.3
 

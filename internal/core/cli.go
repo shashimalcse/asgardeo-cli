@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/shashimalcse/is-cli/internal/api"
-	"github.com/shashimalcse/is-cli/internal/config"
+	"github.com/shashimalcse/asgardeo-cli/internal/api"
+	"github.com/shashimalcse/asgardeo-cli/internal/config"
 	"go.uber.org/zap"
 )
 

@@ -7,24 +7,22 @@ import (
 	"os/signal"
 	"path/filepath"
 
-	"github.com/shashimalcse/is-cli/internal/config"
-	"github.com/shashimalcse/is-cli/internal/core"
+	"github.com/shashimalcse/asgardeo-cli/internal/config"
+	"github.com/shashimalcse/asgardeo-cli/internal/core"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
 const rootShort = `
+    _                            _                       ____ _     ___ 
+   / \   ___  __ _  __ _ _ __ __| | ___  ___            / ___| |   |_ _|
+  / _ \ / __|/ _` + "`" + ` |/ _` + "`" + ` | '__/ _` + "`" + ` |/ _ \/ _ \   _____  | |   | |    | | 
+ / ___ \\__ \ (_| | (_| | | | (_| |  __/ (_) | |_____| | |___| |___ | | 
+/_/   \_\___/\__, |\__,_|_|  \__,_|\___|\___/           \____|_____|___|
+             |___/                                                      
 
- _____    _            _   _ _           _____                          
-|_   _|  | |          | | (_) |         /  ___|                         
-  | |  __| | ___ _ __ | |_ _| |_ _   _  \ ` + "`" + `--.  ___ _ ____   _____ _ __ 
-  | | / _` + "`" + ` |/ _ \ '_ \| __| | __| | | |  ` + "`" + `--. \/ _ \ '__\ \ / / _ \ '__|
- _| || (_| |  __/ | | | |_| | |_| |_| | /\__/ /  __/ |   \ V /  __/ |   
-|___/ \__,_|\___|_| |_|\__|_|\__|\__, | \____/ \___|_|    \_/ \___|_|   
-                                 __/  |                                 
-                                |____/                                  
 
-Build, manage and test your Identity Server/Asgardeo integrations from the command line.								
+Build, manage and test your Asgardeo integrations from the command line.
 `
 
 func Execute() {
@@ -50,7 +48,7 @@ func Execute() {
 
 func buildRootCmd(cli *core.CLI) *cobra.Command {
 	rootCommand := &cobra.Command{
-		Use:           "is",
+		Use:           "asgardeo",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Short:         rootShort,
@@ -78,8 +76,8 @@ func addSubCommands(rootCmd *cobra.Command, cli *core.CLI) {
 
 func commandRequiresAuthentication(invokedCommandName string) bool {
 	commandsWithNoAuthRequired := map[string]bool{
-		"is login":  true,
-		"is logout": true,
+		"asgardeo login":  true,
+		"asgardeo logout": true,
 	}
 	return !commandsWithNoAuthRequired[invokedCommandName]
 }
@@ -97,7 +95,7 @@ func configLogger() (*zap.Logger, error) {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
 
-	logFilePath := filepath.Join(logDir, "is-cli.log")
+	logFilePath := filepath.Join(logDir, "asgardeo-cli.log")
 
 	config.OutputPaths = []string{logFilePath}
 	config.ErrorOutputPaths = []string{logFilePath}

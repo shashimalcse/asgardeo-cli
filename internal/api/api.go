@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/shashimalcse/is-cli/internal/config"
+	"github.com/shashimalcse/asgardeo-cli/internal/config"
 	"go.uber.org/zap"
 )
 

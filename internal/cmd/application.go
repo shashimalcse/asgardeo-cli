@@ -6,8 +6,8 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/shashimalcse/is-cli/internal/core"
-	interactive "github.com/shashimalcse/is-cli/internal/interactive/application"
+	"github.com/shashimalcse/asgardeo-cli/internal/core"
+	interactive "github.com/shashimalcse/asgardeo-cli/internal/interactive/application"
 	"github.com/spf13/cobra"
 )
 
@@ -29,8 +29,8 @@ func listApplicationsCmd(cli *core.CLI) *cobra.Command {
 		Aliases: []string{"ls"},
 		Args:    cobra.NoArgs,
 		Short:   "List your applications",
-		Example: `is applications list
-  is applications ls`,
+		Example: `asgardeo applications list
+  asgardeo applications ls`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			m := interactive.NewApplicationListModel(cli)
@@ -56,8 +56,8 @@ func createApplicationsCmd(cli *core.CLI) *cobra.Command {
 		Aliases: []string{"c"},
 		Args:    cobra.NoArgs,
 		Short:   "Create an application",
-		Example: `is applications create
-  is applications c`,
+		Example: `asgardeo applications create
+  asgardeo applications c`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			m := interactive.NewApplicationCreateModel(cli)
@@ -89,8 +89,8 @@ func deleteApplicationsCmd(cli *core.CLI) *cobra.Command {
 		Aliases: []string{"rm"},
 		Args:    cobra.MaximumNArgs(1),
 		Short:   "Delete applications",
-		Example: `is applications delete
-  is applications rm`,
+		Example: `asgardeo applications delete
+  asgardeo applications rm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				inputs.ApplicationId = args[0]

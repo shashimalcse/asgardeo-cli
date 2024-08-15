@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+var (
+	SYSTEM_SCOPE = "SYSTEM"
+)
+
 type Result struct {
 	TokenType    string `json:"token_type"`
 	AccessToken  string `json:"access_token"`
@@ -38,8 +42,8 @@ type Credentials struct {
 }
 
 var credentials = &Credentials{
-	ClientID: "Wkwv5_jmo2DJVoul3bW7qve46C4a",
-	Tenant:   "carbon.super",
+	ClientID: "",
+	Tenant:   "",
 }
 
 func GetDeviceCode(httpClient *http.Client) (State, error) {
@@ -114,21 +118,19 @@ func GetAccessTokenFromDeviceCode(httpClient *http.Client, state State) (Result,
 	return result, nil
 }
 
-func GetAccessTokenFromClientCreds(httpClient *http.Client, args ClientCredentials) (Result, error) {
+func AuthenticateWithClientCredentials(httpClient *http.Client, args ClientCredentials) (Result, error) {
 
 	data := url.Values{
 		"grant_type": {"client_credentials"},
-		"scope":      {"SYSTEM"},
+		"scope":      {SYSTEM_SCOPE},
 	}
 	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.asgardeo.io/t/%s/oauth2/token", args.Tenant), strings.NewReader(data.Encode()))
 	if err != nil {
 		return Result{}, err
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	auth := args.ClientID + ":" + args.ClientSecret
-	encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
+	encodedAuth := getBasicAuth(args.ClientID, args.ClientSecret)
 	req.Header.Add("Authorization", "Basic "+encodedAuth)
-
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return Result{}, err
@@ -148,4 +150,9 @@ func GetAccessTokenFromClientCreds(httpClient *http.Client, args ClientCredentia
 		return Result{}, err
 	}
 	return result, nil
+}
+
+func getBasicAuth(clientID, clientSecret string) string {
+	auth := clientID + ":" + clientSecret
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }

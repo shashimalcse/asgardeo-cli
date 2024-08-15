@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/shashimalcse/is-cli/internal/core"
-	"github.com/shashimalcse/is-cli/internal/interactive"
-	"github.com/shashimalcse/is-cli/internal/models"
+	"github.com/shashimalcse/asgardeo-cli/internal/core"
+	"github.com/shashimalcse/asgardeo-cli/internal/interactive"
+	"github.com/shashimalcse/asgardeo-cli/internal/models"
 	"github.com/spf13/cobra"
 )
 
@@ -16,8 +16,8 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "login",
-		Short:   "Authenticate the IS CLI",
-		Example: "is login",
+		Short:   "Authenticate the Asgardeo CLI",
+		Example: "asgardeo login",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Determine if we should use interactive mode
 			if !inputs.IsLoggingInAsAMachine() {

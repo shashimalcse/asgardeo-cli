@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/shashimalcse/is-cli/internal/core"
-	"github.com/shashimalcse/is-cli/internal/keyring"
+	"github.com/shashimalcse/asgardeo-cli/internal/core"
+	"github.com/shashimalcse/asgardeo-cli/internal/keyring"
 	"github.com/spf13/cobra"
 )
 
@@ -13,8 +13,8 @@ func logoutCmd(cli *core.CLI) *cobra.Command {
 	var tenant string
 	cmd := &cobra.Command{
 		Use:     "logout",
-		Short:   "Logout the IS CLI",
-		Example: "is logout <tenant>",
+		Short:   "Logout the Asgardeo CLI",
+		Example: "asgardeo logout <tenant>",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			if err := cli.Config.RemoveTenant(tenant); err != nil {

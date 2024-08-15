@@ -2,10 +2,11 @@ package core
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/shashimalcse/is-cli/internal/auth"
-	"github.com/shashimalcse/is-cli/internal/config"
-	"github.com/shashimalcse/is-cli/internal/keyring"
+	"github.com/shashimalcse/asgardeo-cli/internal/auth"
+	"github.com/shashimalcse/asgardeo-cli/internal/config"
+	"github.com/shashimalcse/asgardeo-cli/internal/keyring"
 )
 
 type LoginInputs struct {
@@ -20,16 +21,23 @@ func (i *LoginInputs) IsLoggingInAsAMachine() bool {
 
 func RunLoginAsMachine(inputs LoginInputs, cli *CLI) error {
 
-	result, err := auth.GetAccessTokenFromClientCreds(http.DefaultClient, auth.ClientCredentials{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant})
+	result, err := auth.AuthenticateWithClientCredentials(http.DefaultClient, auth.ClientCredentials{ClientID: inputs.ClientID, ClientSecret: inputs.ClientSecret, Tenant: inputs.Tenant})
 	if err != nil {
 		return err
 	}
-	tenant := config.Tenant{Name: inputs.Tenant, ClientID: inputs.ClientID, AccessToken: result.AccessToken}
+	expireIn := time.Now().Add(time.Duration(result.ExpiresIn) * time.Second)
+	tenant := config.Tenant{
+		Name:      inputs.Tenant,
+		ClientID:  inputs.ClientID,
+		ExpiresIn: expireIn,
+	}
 	if err := keyring.StoreAccessToken(inputs.Tenant, result.AccessToken); err != nil {
-		// In case we don't have a keyring, we want the
-		// access token to be saved in the config file.
+		tenant.AccessToken = result.AccessToken
 	}
 	err = cli.Config.AddTenant(tenant)
+	if err != nil {
+		return err
+	}
 	cli.Config.DefaultTenant = tenant.Name
 	return nil
 }

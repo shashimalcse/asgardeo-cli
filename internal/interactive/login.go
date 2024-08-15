@@ -8,10 +8,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pkg/browser"
-	"github.com/shashimalcse/is-cli/internal/auth"
-	"github.com/shashimalcse/is-cli/internal/core"
-	"github.com/shashimalcse/is-cli/internal/models"
-	"github.com/shashimalcse/is-cli/internal/tui"
+	"github.com/shashimalcse/asgardeo-cli/internal/auth"
+	"github.com/shashimalcse/asgardeo-cli/internal/core"
+	"github.com/shashimalcse/asgardeo-cli/internal/models"
+	"github.com/shashimalcse/asgardeo-cli/internal/tui"
 )
 
 var (

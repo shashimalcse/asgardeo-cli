@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/shashimalcse/is-cli/internal/config"
+	"github.com/shashimalcse/asgardeo-cli/internal/config"
 	"go.uber.org/zap"
 )
 
@@ -34,7 +34,7 @@ func NewHTTPClientAPI(cfg *config.Config, tenantDomain string, logger *zap.Logge
 		logger.Error("failed to parse base URL while creating http client", zap.Error(err))
 		return nil, err
 	}
-	return &httpClient{client: &http.Client{}, basepath: basepath, baseUrl: u, token: tenant.AccessToken, logger: logger}, nil
+	return &httpClient{client: &http.Client{}, basepath: basepath, baseUrl: u, token: tenant.GetAccessToken(), logger: logger}, nil
 }
 
 func (c *httpClient) Request(ctx context.Context, method, uri string, payload interface{}) error {

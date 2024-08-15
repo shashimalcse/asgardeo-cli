@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shashimalcse/is-cli/internal/core"
-	"github.com/shashimalcse/is-cli/internal/models"
-	"github.com/shashimalcse/is-cli/internal/tui"
+	"github.com/shashimalcse/asgardeo-cli/internal/core"
+	"github.com/shashimalcse/asgardeo-cli/internal/models"
+	"github.com/shashimalcse/asgardeo-cli/internal/tui"
 )
 
 // ApplicationListState represents the current state of the application list view.

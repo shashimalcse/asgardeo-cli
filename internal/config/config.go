@@ -59,6 +59,7 @@ func (c *Config) Validate() error {
 		return ErrNoAuthenticatedTenants
 	}
 	if c.DefaultTenant == "" {
+		c.logger.Error("No default tenant set")
 		return errors.New("no default tenant set")
 	}
 	return nil
