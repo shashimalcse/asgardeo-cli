@@ -12,8 +12,16 @@ type APIResource struct {
 	Identifier            string     `json:"identifier"`
 	Type                  string     `json:"type"`
 	RequiresAuthorization bool       `json:"requiresAuthorization"`
+	Scopes                []Scope    `json:"scopes"`
 	Properties            []Property `json:"properties"`
 	Self                  string     `json:"self"`
+}
+
+type Scope struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"displayName"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 type Property struct {

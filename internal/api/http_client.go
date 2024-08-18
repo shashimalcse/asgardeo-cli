@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/shashimalcse/asgardeo-cli/internal/config"
 	"go.uber.org/zap"
@@ -34,11 +35,11 @@ func NewHTTPClientAPI(cfg *config.Config, tenantDomain string, logger *zap.Logge
 		logger.Error("failed to parse base URL while creating http client", zap.Error(err))
 		return nil, err
 	}
-	return &httpClient{client: &http.Client{}, basepath: basepath, baseUrl: u, token: tenant.GetAccessToken(), logger: logger}, nil
+	return &httpClient{client: &http.Client{Timeout: 30 * time.Second}, basepath: basepath, baseUrl: u, token: tenant.GetAccessToken(), logger: logger}, nil
 }
 
-func (c *httpClient) Request(ctx context.Context, method, uri string, payload interface{}) error {
-	request, err := c.NewRequest(ctx, method, uri, payload)
+func (c *httpClient) Request(ctx context.Context, method, uri string, params url.Values, payload interface{}) error {
+	request, err := c.NewRequest(ctx, method, uri, params, payload)
 	if err != nil {
 		return fmt.Errorf("failed to create a new request: %w", err)
 	}
@@ -64,7 +65,7 @@ func (c *httpClient) Request(ctx context.Context, method, uri string, payload in
 	return nil
 }
 
-func (c *httpClient) NewRequest(ctx context.Context, method, uri string, payload interface{}) (*http.Request, error) {
+func (c *httpClient) NewRequest(ctx context.Context, method, uri string, params url.Values, payload interface{}) (*http.Request, error) {
 	const nullBody = "null\n"
 	var body bytes.Buffer
 	if payload != nil {
@@ -75,7 +76,20 @@ func (c *httpClient) NewRequest(ctx context.Context, method, uri string, payload
 	if body.String() == nullBody {
 		body.Reset()
 	}
-	request, err := http.NewRequestWithContext(ctx, method, uri, &body)
+	parsedURL, err := url.Parse(uri)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URI: %w", err)
+	}
+
+	// Merge existing query parameters with new ones
+	query := parsedURL.Query()
+	for key, values := range params {
+		for _, value := range values {
+			query.Add(key, value)
+		}
+	}
+	parsedURL.RawQuery = query.Encode()
+	request, err := http.NewRequestWithContext(ctx, method, parsedURL.String(), &body)
 	if err != nil {
 		return nil, err
 	}

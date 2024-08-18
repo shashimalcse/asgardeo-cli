@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/shashimalcse/asgardeo-cli/internal/models"
 )
@@ -15,16 +16,24 @@ func NewApiResourceAPI(httpClient *httpClient) *apiResourceAPI {
 }
 
 func (a *apiResourceAPI) List(ctx context.Context, apiType string) (list *models.APIResourceList, err error) {
-	err = a.httpClient.Request(ctx, "GET", a.httpClient.URI("api-resources"), &list)
+	params := url.Values{}
+	params.Add("attributes", "properties")
+	params.Add("filter", "type eq "+apiType)
+	err = a.httpClient.Request(ctx, "GET", a.httpClient.URI("api-resources"), params, &list)
 	return
 }
 
-func (m *apiResourceAPI) Create(ctx context.Context, apiResource map[string]interface{}) (err error) {
-	err = m.httpClient.Request(ctx, "POST", m.httpClient.URI("api-resources"), apiResource)
+func (a *apiResourceAPI) Get(ctx context.Context, id string) (apiResource *models.APIResource, err error) {
+	err = a.httpClient.Request(ctx, "GET", a.httpClient.URI("api-resources/"+id), nil, &apiResource)
 	return
 }
 
-func (m *apiResourceAPI) Delete(ctx context.Context, id string) (err error) {
-	err = m.httpClient.Request(ctx, "DELETE", m.httpClient.URI("api-resources", id), nil)
+func (a *apiResourceAPI) Create(ctx context.Context, apiResource map[string]interface{}) (err error) {
+	err = a.httpClient.Request(ctx, "POST", a.httpClient.URI("api-resources"), nil, apiResource)
+	return
+}
+
+func (a *apiResourceAPI) Delete(ctx context.Context, id string) (err error) {
+	err = a.httpClient.Request(ctx, "DELETE", a.httpClient.URI("api-resources", id), nil, nil)
 	return
 }
