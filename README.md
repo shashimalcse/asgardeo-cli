@@ -89,7 +89,13 @@ As a machine - Recommended when running on a server or non-interactive environme
 
 ## Contributing
 
-We welcome contributions! Please feel free to submit a Pull Request.
+We welcome contributions to this project! Here are some guidelines to follow:
+
+- Before submitting a pull request, please ensure your code aligns with the [Golang Style Guide](https://github.com/uber-go/guide/blob/master/style.md#style)
+- Update the documentation if you've made changes that affect it.
+- Submit a pull request with a comprehensive description of your changes.
+
+We appreciate your efforts to improve this project!
 
 ## Support
 
