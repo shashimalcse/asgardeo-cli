@@ -101,7 +101,12 @@ func (m ApiResourceListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.selectedApiResource = m.getApiResourceByName(selectedItem.FilterValue())
-			m.fetchApiResource()
+			err := m.fetchApiResource()
+			if err != nil {
+				m.state = StateError
+				m.stateError = err
+				return m, tea.Quit
+			}
 			scopes := []list.Item{}
 			for _, scope := range m.selectedApiResource.Scopes {
 				scopes = append(scopes, tui.NewItem(scope.Name, scope.ID))

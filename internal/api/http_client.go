@@ -38,8 +38,31 @@ func NewHTTPClientAPI(cfg *config.Config, tenantDomain string, logger *zap.Logge
 	return &httpClient{client: &http.Client{Timeout: 30 * time.Second}, basepath: basepath, baseUrl: u, token: tenant.GetAccessToken(), logger: logger}, nil
 }
 
-func (c *httpClient) Request(ctx context.Context, method, uri string, params url.Values, payload interface{}) error {
-	request, err := c.NewRequest(ctx, method, uri, params, payload)
+type RequestOption func(*requestOptions)
+
+type requestOptions struct {
+	params  url.Values
+	payload interface{}
+}
+
+func WithParams(params url.Values) RequestOption {
+	return func(ro *requestOptions) {
+		ro.params = params
+	}
+}
+
+func WithPayload(payload interface{}) RequestOption {
+	return func(ro *requestOptions) {
+		ro.payload = payload
+	}
+}
+
+func (c *httpClient) Request(ctx context.Context, method, uri string, opts ...RequestOption) error {
+	options := &requestOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	request, err := c.NewRequest(ctx, method, uri, options.params, options.payload)
 	if err != nil {
 		return fmt.Errorf("failed to create a new request: %w", err)
 	}
@@ -58,7 +81,7 @@ func (c *httpClient) Request(ctx context.Context, method, uri string, params url
 		return fmt.Errorf("failed to read the response body: %w", err)
 	}
 	if len(responseBody) > 0 && string(responseBody) != "{}" {
-		if err = json.Unmarshal(responseBody, &payload); err != nil {
+		if err = json.Unmarshal(responseBody, &options.payload); err != nil {
 			return fmt.Errorf("failed to unmarshal response payload: %w", err)
 		}
 	}

@@ -79,6 +79,10 @@ As a machine - Recommended when running on a server or non-interactive environme
 - `asgardeo apps create` - Create a new application
 - `asgardeo apps delete <app-id>` - Delete an application
 
+### API Resources
+
+- `asgardeo apis list` - List your API resources
+
 
 ![Screenshot 2024-08-02 at 15 41 42](https://github.com/user-attachments/assets/c76a1b8e-740a-4ad7-a014-1a880b5a4f16)
 ![Screenshot 2024-08-02 at 15 43 22](https://github.com/user-attachments/assets/ebc9f872-65c7-4609-bd7f-926af2bac076)
