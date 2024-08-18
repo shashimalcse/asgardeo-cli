@@ -72,6 +72,7 @@ func addSubCommands(rootCmd *cobra.Command, cli *core.CLI) {
 	rootCmd.AddCommand(loginCmd(cli))
 	rootCmd.AddCommand(logoutCmd(cli))
 	rootCmd.AddCommand(applicationsCmd(cli))
+	rootCmd.AddCommand(apiResourceCmd(cli))
 }
 
 func commandRequiresAuthentication(invokedCommandName string) bool {

@@ -7,6 +7,7 @@ import (
 
 type API struct {
 	Application *applicationAPI
+	APIResource *apiResourceAPI
 	httpClient  *httpClient
 }
 
@@ -18,6 +19,7 @@ func NewAPI(cfg *config.Config, tenantDomain string, logger *zap.Logger) (*API, 
 	api := &API{
 		httpClient:  httpClient,
 		Application: NewApplicationAPI(httpClient),
+		APIResource: NewApiResourceAPI(httpClient),
 	}
 	return api, nil
 }
