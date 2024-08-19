@@ -66,10 +66,18 @@ asgardeo login
 
 There are two ways to authenticate:
 
-As a user - Recommended when invoking on a personal machine or other interactive environment. Facilitated by device authorization flow.
-As a machine - Recommended when running on a server or non-interactive environments (ex: CI). Facilitated by client credentials flow.
+- As a user - Recommended when invoking on a personal machine or other interactive environment. Facilitated by device authorization flow.
 
-> Authenticating as a user is not supported for Asgardeo tenants.
+   > Authenticating as a user is not supported for Asgardeo tenants.
+
+- As a machine - Recommended when running on a server or non-interactive environments (ex: CI). Facilitated by client credentials flow.
+
+  - [Create a Machine-to-Machine (M2M) application](https://wso2.com/asgardeo/docs/guides/applications/register-machine-to-machine-app/) within your Asgardeo organization.
+  - [Authorize the APIs](https://wso2.com/asgardeo/docs/apis/#step-2-authorize-the-application-to-consume-api-resources) you want the application to consume.
+
+     > **Important:** Certain functionalities will not work unless the relevant APIs are not authorized to the application.
+  - Record the **Client ID** and **Client Secret** from the **Protocol** tab.
+  - When prompted, enter the **Tenant Domain**, **Client ID**, and **Client Secret** obtained in the previous step.
 
 ## Commands:
 
