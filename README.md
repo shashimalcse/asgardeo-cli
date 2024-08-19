@@ -76,6 +76,7 @@ There are two ways to authenticate:
   - [Authorize the APIs](https://wso2.com/asgardeo/docs/apis/#step-2-authorize-the-application-to-consume-api-resources) you want the application to consume.
 
      > **Important:** Certain functionalities will not work unless the relevant APIs are not authorized to the application.
+     
   - Record the **Client ID** and **Client Secret** from the **Protocol** tab.
   - When prompted, enter the **Tenant Domain**, **Client ID**, and **Client Secret** obtained in the previous step.
 
