@@ -91,6 +91,7 @@ There are two ways to authenticate:
 ### API Resources
 
 - `asgardeo apis list` - List your API resources
+- `asgardeo apis create` - Create a new API resource
 
 
 ![Screenshot 2024-08-02 at 15 41 42](https://github.com/user-attachments/assets/c76a1b8e-740a-4ad7-a014-1a880b5a4f16)
