@@ -18,7 +18,7 @@ type APIResource struct {
 }
 
 type Scope struct {
-	ID          string `json:"id"`
+	ID          string `json:"id,omitempty"`
 	DisplayName string `json:"displayName"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
