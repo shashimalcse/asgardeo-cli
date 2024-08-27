@@ -17,6 +17,7 @@ func apiResourceCmd(cli *core.CLI) *cobra.Command {
 	}
 
 	cmd.AddCommand(listApiResourceCmd(cli))
+	cmd.AddCommand(createAPIResourceCmd(cli))
 	return cmd
 }
 
@@ -40,6 +41,34 @@ func listApiResourceCmd(cli *core.CLI) *cobra.Command {
 
 			}
 
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func createAPIResourceCmd(cli *core.CLI) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "create",
+		Aliases: []string{"c"},
+		Args:    cobra.NoArgs,
+		Short:   "Create an api resource",
+		Example: `asgardeo apis create
+  asgardeo apis c`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			m := interactive.NewAPIResourceCreateModel(cli)
+			p := tea.NewProgram(m, tea.WithAltScreen())
+
+			m1, err := p.Run()
+			if err != nil {
+				fmt.Println("Oh no:", err)
+				os.Exit(1)
+			}
+			if m2, ok := m1.(interactive.APIResourceCreateModel); ok && m2.Value() != "" {
+				fmt.Print(m2.Value())
+			}
 			return nil
 		},
 	}
