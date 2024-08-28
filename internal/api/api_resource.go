@@ -24,7 +24,7 @@ func (a *apiResourceAPI) List(ctx context.Context, apiType string) (list *models
 }
 
 func (a *apiResourceAPI) Get(ctx context.Context, id string) (apiResource *models.APIResource, err error) {
-	err = a.httpClient.Request(ctx, "GET", a.httpClient.URI("api-resources/"+id), WithPayload(&apiResource))
+	err = a.httpClient.Request(ctx, "GET", a.httpClient.URI("api-resources", id), WithPayload(&apiResource))
 	return
 }
 

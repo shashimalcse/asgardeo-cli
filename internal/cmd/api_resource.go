@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -18,6 +19,7 @@ func apiResourceCmd(cli *core.CLI) *cobra.Command {
 
 	cmd.AddCommand(listApiResourceCmd(cli))
 	cmd.AddCommand(createAPIResourceCmd(cli))
+	cmd.AddCommand(deleteAPIResourceCmd(cli))
 	return cmd
 }
 
@@ -73,5 +75,38 @@ func createAPIResourceCmd(cli *core.CLI) *cobra.Command {
 		},
 	}
 
+	return cmd
+}
+
+type APIResourceDeleteInputs struct {
+	ApiId string
+}
+
+func deleteAPIResourceCmd(cli *core.CLI) *cobra.Command {
+	var inputs APIResourceDeleteInputs
+	cmd := &cobra.Command{
+		Use:     "delete",
+		Aliases: []string{"rm"},
+		Args:    cobra.MaximumNArgs(1),
+		Short:   "Delete api resource",
+		Example: `asgardeo apis delete
+  asgardeo apis rm`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				inputs.ApiId = args[0]
+			}
+			if inputs.ApiId == "" {
+				return fmt.Errorf("api resource ID is required")
+			}
+			fmt.Printf("Deleting api resource with ID: %s\n", inputs.ApiId)
+			err := cli.API.APIResource.Delete(context.Background(), inputs.ApiId)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&inputs.ApiId, "api-id", "", "API Resource ID")
 	return cmd
 }
