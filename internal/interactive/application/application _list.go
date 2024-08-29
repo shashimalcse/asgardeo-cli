@@ -18,8 +18,7 @@ import (
 type ApplicationListState int
 
 const (
-	StateNotStarted ApplicationListState = iota
-	StateFetching
+	StateFetching ApplicationListState = iota
 	StateCompleted
 	StateError
 )
@@ -34,9 +33,9 @@ type ApplicationListModel struct {
 	list          list.Model
 }
 
-func NewApplicationListModel(cli *core.CLI) ApplicationListModel {
+func NewApplicationListModel(cli *core.CLI) *ApplicationListModel {
 
-	return ApplicationListModel{
+	return &ApplicationListModel{
 		styles:  tui.DefaultStyles(),
 		spinner: newSpinner(),
 		cli:     cli,
@@ -55,23 +54,22 @@ func newSpinner() spinner.Model {
 func (m *ApplicationListModel) fetchApplications() tea.Msg {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	list, err := m.cli.API.Application.List(ctx)
+	appsList, err := m.cli.API.Application.List(ctx)
 	if err != nil {
 		return err
 	}
-	return list
+	return appsList
 }
 
 // Init initializes the model and returns the initial command.
-func (m ApplicationListModel) Init() tea.Cmd {
+func (m *ApplicationListModel) Init() tea.Cmd {
 	return tea.Batch(
 		m.fetchApplications,
 		m.spinner.Tick,
 	)
 }
 
-func (m ApplicationListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *ApplicationListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -79,7 +77,7 @@ func (m ApplicationListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case *models.ApplicationList:
-		applications := []list.Item{}
+		var applications []list.Item
 		for _, app := range msg.Applications {
 			applications = append(applications, tui.NewItem(app.Name, app.ID))
 		}
@@ -105,7 +103,7 @@ func (m ApplicationListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m ApplicationListModel) View() string {
+func (m *ApplicationListModel) View() string {
 	switch m.state {
 	case StateFetching:
 		return fmt.Sprintf("\n\n   %s Fetching applications...!\n\n", m.spinner.View())

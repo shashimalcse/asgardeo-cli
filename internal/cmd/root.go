@@ -27,12 +27,18 @@ Build, manage and test your Asgardeo integrations from the command line.
 
 func Execute() {
 	logger, err := configLogger()
-	cfg := config.NewConfig(logger)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing logger: %v\n", err)
+		fmt.Printf("failed to configure logger")
 		os.Exit(1)
 	}
-	defer logger.Sync()
+	cfg := config.NewConfig(logger)
+	defer func(logger *zap.Logger) {
+		err := logger.Sync()
+		if err != nil {
+			fmt.Printf("failed to sync logger")
+			os.Exit(1)
+		}
+	}(logger)
 	cli := core.NewCLI(cfg, logger)
 	rootCmd := buildRootCmd(cli)
 	addSubCommands(rootCmd, cli)
@@ -41,7 +47,7 @@ func Execute() {
 	go handleSignals(cancel)
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		logger.Error("Command execution failed", zap.Error(err))
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -58,7 +64,7 @@ func buildRootCmd(cli *core.CLI) *cobra.Command {
 			if !commandRequiresAuthentication(cmd.CommandPath()) {
 				return nil
 			}
-			if err := cli.SetupWithAuthentication(cmd.Context()); err != nil {
+			if err := cli.SetupWithAuthentication(); err != nil {
 				cli.Logger.Error("Authentication setup failed", zap.Error(err))
 				return fmt.Errorf("authentication failed: %w", err)
 			}
@@ -84,24 +90,19 @@ func commandRequiresAuthentication(invokedCommandName string) bool {
 }
 
 func configLogger() (*zap.Logger, error) {
-	config := zap.NewProductionConfig()
-
+	newConfig := zap.NewProductionConfig()
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user home directory: %w", err)
 	}
-
 	logDir := filepath.Join(cwd, "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
-
 	logFilePath := filepath.Join(logDir, "asgardeo-cli.log")
-
-	config.OutputPaths = []string{logFilePath}
-	config.ErrorOutputPaths = []string{logFilePath}
-
-	return config.Build()
+	newConfig.OutputPaths = []string{logFilePath}
+	newConfig.ErrorOutputPaths = []string{logFilePath}
+	return newConfig.Build()
 }
 
 func handleSignals(cancel context.CancelFunc) {

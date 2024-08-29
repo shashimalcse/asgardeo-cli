@@ -10,7 +10,7 @@ type Styles struct {
 
 func DefaultStyles() *Styles {
 	s := new(Styles)
-	s.BorderColor = lipgloss.Color("#EC5800")
+	s.BorderColor = "#EC5800"
 	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(80)
 	s.List = lipgloss.NewStyle().Margin(1, 2)
 	return s

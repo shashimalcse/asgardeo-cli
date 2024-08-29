@@ -18,8 +18,7 @@ import (
 type ApiResourceListState int
 
 const (
-	StateNotStarted ApiResourceListState = iota
-	StateFetching
+	StateFetching ApiResourceListState = iota
 	StateCompleted
 	StateError
 	StateApiResourceSelected
@@ -38,9 +37,9 @@ type ApiResourceListModel struct {
 	selectedApiResource models.APIResource
 }
 
-func NewApiResourceListModel(cli *core.CLI) ApiResourceListModel {
+func NewApiResourceListModel(cli *core.CLI) *ApiResourceListModel {
 
-	return ApiResourceListModel{
+	return &ApiResourceListModel{
 		styles:  tui.DefaultStyles(),
 		spinner: newSpinner(),
 		cli:     cli,
@@ -60,11 +59,11 @@ func (m *ApiResourceListModel) fetchApiResources() tea.Msg {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	list, err := m.cli.API.APIResource.List(ctx, "BUSINESS")
+	apiList, err := m.cli.API.APIResource.List(ctx, "BUSINESS")
 	if err != nil {
 		return err
 	}
-	return list
+	return apiList
 }
 
 func (m *ApiResourceListModel) fetchApiResource() error {
@@ -81,14 +80,14 @@ func (m *ApiResourceListModel) fetchApiResource() error {
 }
 
 // Init initializes the model and returns the initial command.
-func (m ApiResourceListModel) Init() tea.Cmd {
+func (m *ApiResourceListModel) Init() tea.Cmd {
 	return tea.Batch(
 		m.fetchApiResources,
 		m.spinner.Tick,
 	)
 }
 
-func (m ApiResourceListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *ApiResourceListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -107,7 +106,7 @@ func (m ApiResourceListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.stateError = err
 				return m, tea.Quit
 			}
-			scopes := []list.Item{}
+			var scopes []list.Item
 			for _, scope := range m.selectedApiResource.Scopes {
 				scopes = append(scopes, tui.NewItem(scope.Name, scope.ID))
 			}
@@ -119,7 +118,7 @@ func (m ApiResourceListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case *models.APIResourceList:
 		m.apiResourceList = msg.APIResources
-		ApiResources := []list.Item{}
+		var ApiResources []list.Item
 		for _, app := range msg.APIResources {
 			ApiResources = append(ApiResources, tui.NewItem(app.Name, app.ID))
 		}
@@ -149,7 +148,7 @@ func (m ApiResourceListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m ApiResourceListModel) View() string {
+func (m *ApiResourceListModel) View() string {
 	switch m.state {
 	case StateFetching:
 		return fmt.Sprintf("\n\n   %s Fetching Api Resources...!\n\n", m.spinner.View())
@@ -164,7 +163,7 @@ func (m ApiResourceListModel) View() string {
 	return ""
 }
 
-func (m ApiResourceListModel) getApiResourceByName(name string) models.APIResource {
+func (m *ApiResourceListModel) getApiResourceByName(name string) models.APIResource {
 	for _, api := range m.apiResourceList {
 		if api.Name == name {
 			return api

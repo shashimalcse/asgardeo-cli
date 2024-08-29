@@ -17,7 +17,6 @@ type APIResourceCreateState int
 
 const (
 	StateInitiated APIResourceCreateState = iota
-	StateQuestionsCompleted
 	StateAddingScopes
 	StateConfirmation
 	StateCreatingInProgress
@@ -63,11 +62,11 @@ func initQuestions() []tui.Question {
 	return questions
 }
 
-func (m APIResourceCreateModel) Init() tea.Cmd {
+func (m *APIResourceCreateModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
-func (m APIResourceCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *APIResourceCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
@@ -93,7 +92,7 @@ func (m APIResourceCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m APIResourceCreateModel) handleKeyEnter() (tea.Model, tea.Cmd) {
+func (m *APIResourceCreateModel) handleKeyEnter() (tea.Model, tea.Cmd) {
 	switch m.state {
 	case StateInitiated:
 		currentQuestion := &m.questions[m.currentQuestionIndex]
@@ -140,13 +139,13 @@ func (m APIResourceCreateModel) handleKeyEnter() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m APIResourceCreateModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+func (m *APIResourceCreateModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.width, m.height = msg.Width, msg.Height
 	_, _ = m.styles.List.GetFrameSize()
 	return m, nil
 }
 
-func (m APIResourceCreateModel) View() string {
+func (m *APIResourceCreateModel) View() string {
 	switch m.state {
 	case StateInitiated:
 		return m.renderQuestions()
@@ -211,7 +210,7 @@ func (m *APIResourceCreateModel) renderConfirmation() string {
 	return sb.String()
 }
 
-func (m APIResourceCreateModel) Value() string {
+func (m *APIResourceCreateModel) Value() string {
 	return fmt.Sprint(m.output)
 }
 
@@ -223,7 +222,7 @@ func (m *APIResourceCreateModel) NextQuestion() {
 	}
 }
 
-func (m APIResourceCreateModel) createAPIResources() error {
+func (m *APIResourceCreateModel) createAPIResources() error {
 	payload := map[string]interface{}{
 		"identifier":            m.questions[0].Answer,
 		"name":                  m.questions[1].Answer,

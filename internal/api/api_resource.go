@@ -8,32 +8,39 @@ import (
 )
 
 type apiResourceAPI struct {
-	httpClient *httpClient
+	httpClient HTTPClient
 }
 
-func NewApiResourceAPI(httpClient *httpClient) *apiResourceAPI {
+type ResourceAPI interface {
+	List(ctx context.Context, apiType string) (list *models.APIResourceList, err error)
+	Get(ctx context.Context, id string) (apiResource *models.APIResource, err error)
+	Create(ctx context.Context, apiResource map[string]interface{}) (err error)
+	Delete(ctx context.Context, id string) (err error)
+}
+
+func NewApiResourceAPI(httpClient HTTPClient) ResourceAPI {
 	return &apiResourceAPI{httpClient: httpClient}
 }
 
-func (a *apiResourceAPI) List(ctx context.Context, apiType string) (list *models.APIResourceList, err error) {
+func (api *apiResourceAPI) List(ctx context.Context, apiType string) (list *models.APIResourceList, err error) {
 	params := url.Values{}
 	params.Add("attributes", "properties")
 	params.Add("filter", "type eq "+apiType)
-	err = a.httpClient.Request(ctx, "GET", a.httpClient.URI("api-resources"), WithParams(params), WithPayload(&list))
+	err = api.httpClient.Request(ctx, "GET", api.httpClient.URI("api-resources"), WithParams(params), WithPayload(&list))
 	return
 }
 
-func (a *apiResourceAPI) Get(ctx context.Context, id string) (apiResource *models.APIResource, err error) {
-	err = a.httpClient.Request(ctx, "GET", a.httpClient.URI("api-resources", id), WithPayload(&apiResource))
+func (api *apiResourceAPI) Get(ctx context.Context, id string) (apiResource *models.APIResource, err error) {
+	err = api.httpClient.Request(ctx, "GET", api.httpClient.URI("api-resources", id), WithPayload(&apiResource))
 	return
 }
 
-func (a *apiResourceAPI) Create(ctx context.Context, apiResource map[string]interface{}) (err error) {
-	err = a.httpClient.Request(ctx, "POST", a.httpClient.URI("api-resources"), WithPayload(&apiResource))
+func (api *apiResourceAPI) Create(ctx context.Context, apiResource map[string]interface{}) (err error) {
+	err = api.httpClient.Request(ctx, "POST", api.httpClient.URI("api-resources"), WithPayload(&apiResource))
 	return
 }
 
-func (a *apiResourceAPI) Delete(ctx context.Context, id string) (err error) {
-	err = a.httpClient.Request(ctx, "DELETE", a.httpClient.URI("api-resources", id))
+func (api *apiResourceAPI) Delete(ctx context.Context, id string) (err error) {
+	err = api.httpClient.Request(ctx, "DELETE", api.httpClient.URI("api-resources", id))
 	return
 }

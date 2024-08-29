@@ -31,12 +31,12 @@ const (
 type ApplicationType string
 
 const (
-	SinglePage       ApplicationType = "Single-Page Application"
-	Traditional_OIDC ApplicationType = "Traditional Web Application OIDC"
-	Traditional_SAML ApplicationType = "Traditional Web Application SAML"
-	Mobile           ApplicationType = "Mobile Application"
-	Standard         ApplicationType = "Standard-Based Application"
-	M2M              ApplicationType = "M2M Application"
+	SinglePage      ApplicationType = "Single-Page Application"
+	TraditionalOidc ApplicationType = "Traditional Web Application OIDC"
+	TraditionalSaml ApplicationType = "Traditional Web Application SAML"
+	Mobile          ApplicationType = "Mobile Application"
+	Standard        ApplicationType = "Standard-Based Application"
+	M2M             ApplicationType = "M2M Application"
 )
 
 type ApplicationCreateModel struct {
@@ -66,7 +66,7 @@ func NewApplicationCreateModel(cli *core.CLI) *ApplicationCreateModel {
 func newApplicationTypesList() list.Model {
 	items := []list.Item{
 		tui.NewItemWithKey("single_page", string(SinglePage), "A web application that runs application logic in the browser."),
-		tui.NewItemWithKey("traditional", string(Traditional_OIDC), "A web application that runs application logic on the server."),
+		tui.NewItemWithKey("traditional", string(TraditionalOidc), "A web application that runs application logic on the server."),
 		tui.NewItemWithKey("mobile", string(Mobile), "Applications developed to target mobile devices."),
 		tui.NewItemWithKey("standard", string(Standard), "Applications built using standard protocols."),
 		tui.NewItemWithKey("m2m", string(M2M), "Applications tailored for Machine to Machine communication."),
@@ -83,14 +83,14 @@ func (m *ApplicationCreateModel) initQuestions() []tui.Question {
 			tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
 			tui.NewQuestion("Are you sure you want to create the application? (y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
 		}
-	} else if m.applicationType == Traditional_OIDC {
+	} else if m.applicationType == TraditionalOidc {
 		m.questions = []tui.Question{
 			tui.NewQuestion("Name", "Name", tui.ShortQuestion),
 			tui.NewQuestion("Protocol (OIDC/SAML)", "Protocol (OIDC/SAML) default : OIDC", tui.ShortQuestion),
 			tui.NewQuestion("Authorized redirect URL", "Authorized redirect URL", tui.ShortQuestion),
 			tui.NewQuestion("Are you sure you want to create the application? (Y/n)", "Are you sure you want to create the application? (Y/n)", tui.ShortQuestion),
 		}
-	} else if m.applicationType == Traditional_SAML {
+	} else if m.applicationType == TraditionalSaml {
 		m.questions = []tui.Question{
 			tui.NewQuestion("Name", "Name", tui.ShortQuestion),
 			tui.NewQuestion("Protocol (OIDC/SAML)", "Protocol (OIDC/SAML) default : SAML", tui.ShortQuestion),
@@ -102,11 +102,11 @@ func (m *ApplicationCreateModel) initQuestions() []tui.Question {
 	return nil
 }
 
-func (m ApplicationCreateModel) Init() tea.Cmd {
+func (m *ApplicationCreateModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
-func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -114,7 +114,7 @@ func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
-			return m.handleKeyEnter(msg)
+			return m.handleKeyEnter()
 		}
 	case tea.WindowSizeMsg:
 		return m.handleWindowResize(msg)
@@ -131,7 +131,7 @@ func (m ApplicationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m ApplicationCreateModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ApplicationCreateModel) handleKeyEnter() (tea.Model, tea.Cmd) {
 	switch m.state {
 	case StateInitiated:
 		i, ok := m.applicationTypes.SelectedItem().(tui.Item)
@@ -153,11 +153,11 @@ func (m ApplicationCreateModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.C
 				protocol = strings.ToUpper(protocol)
 				switch protocol {
 				case OIDC:
-					m.applicationType = Traditional_OIDC
+					m.applicationType = TraditionalOidc
 				case SAML:
-					m.applicationType = Traditional_SAML
+					m.applicationType = TraditionalSaml
 				case "":
-					m.applicationType = Traditional_OIDC
+					m.applicationType = TraditionalOidc
 					m.questions[m.currentQuestionIndex].Answer = protocol
 				default:
 					m.output = "Invalid protocol. Please enter OIDC or SAML"
@@ -185,18 +185,20 @@ func (m ApplicationCreateModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.C
 			m.output = "Application creation cancelled."
 			return m, tea.Quit
 		}
+	default:
+		panic("unhandled default case")
 	}
 	return m, nil
 }
 
-func (m ApplicationCreateModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+func (m *ApplicationCreateModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.width, m.height = msg.Width, msg.Height
 	h, v := m.styles.List.GetFrameSize()
 	m.applicationTypes.SetSize(msg.Width-h, msg.Height-v)
 	return m, nil
 }
 
-func (m ApplicationCreateModel) View() string {
+func (m *ApplicationCreateModel) View() string {
 	switch m.state {
 	case StateInitiated:
 		return m.styles.List.Render(m.applicationTypes.View())
@@ -225,7 +227,7 @@ func (m *ApplicationCreateModel) renderQuestions() string {
 	return sb.String()
 }
 
-func (m ApplicationCreateModel) Value() string {
+func (m *ApplicationCreateModel) Value() string {
 	return fmt.Sprint(m.output)
 }
 
@@ -237,7 +239,7 @@ func (m *ApplicationCreateModel) NextQuestion() {
 	}
 }
 
-func (m ApplicationCreateModel) createApplications() error {
+func (m *ApplicationCreateModel) createApplications() error {
 
 	application := map[string]interface{}{
 		"name": m.questions[0].Answer,
@@ -302,7 +304,7 @@ func (m ApplicationCreateModel) createApplications() error {
 				},
 			},
 		}
-	} else if m.applicationType == Traditional_OIDC {
+	} else if m.applicationType == TraditionalOidc {
 		if m.questions[1].Answer == OIDC {
 			application["templateId"] = "b9c5e11e-fc78-484b-9bec-015d247561b8"
 			application["inboundProtocolConfiguration"] = map[string]interface{}{
