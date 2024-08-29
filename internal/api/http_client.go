@@ -23,7 +23,13 @@ type httpClient struct {
 	logger   *zap.Logger
 }
 
-func NewHTTPClientAPI(cfg *config.Config, tenantDomain string, logger *zap.Logger) (*httpClient, error) {
+type HTTPClient interface {
+	Request(ctx context.Context, method, uri string, opts ...RequestOption) error
+	Do(req *http.Request) (*http.Response, error)
+	URI(path ...string) string
+}
+
+func NewHTTPClientAPI(cfg *config.Config, tenantDomain string, logger *zap.Logger) (HTTPClient, error) {
 	tenant, err := cfg.GetTenant(tenantDomain)
 	if err != nil {
 		logger.Error("failed to get tenant while creating http client", zap.Error(err))
@@ -38,31 +44,12 @@ func NewHTTPClientAPI(cfg *config.Config, tenantDomain string, logger *zap.Logge
 	return &httpClient{client: &http.Client{Timeout: 30 * time.Second}, basepath: basepath, baseUrl: u, token: tenant.GetAccessToken(), logger: logger}, nil
 }
 
-type RequestOption func(*requestOptions)
-
-type requestOptions struct {
-	params  url.Values
-	payload interface{}
-}
-
-func WithParams(params url.Values) RequestOption {
-	return func(ro *requestOptions) {
-		ro.params = params
-	}
-}
-
-func WithPayload(payload interface{}) RequestOption {
-	return func(ro *requestOptions) {
-		ro.payload = payload
-	}
-}
-
 func (c *httpClient) Request(ctx context.Context, method, uri string, opts ...RequestOption) error {
 	options := &requestOptions{}
 	for _, opt := range opts {
 		opt(options)
 	}
-	request, err := c.NewRequest(ctx, method, uri, options.params, options.payload)
+	request, err := c.newRequest(ctx, method, uri, options.params, options.payload)
 	if err != nil {
 		return fmt.Errorf("failed to create a new request: %w", err)
 	}
@@ -71,7 +58,11 @@ func (c *httpClient) Request(ctx context.Context, method, uri string, opts ...Re
 		c.logger.Error("failed to send the request with http client", zap.String("method", method), zap.String("uri", uri), zap.Error(err))
 		return fmt.Errorf("failed to send the request: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if cErr := response.Body.Close(); cErr != nil {
+			err = fmt.Errorf("failed to close response body: %w", cErr)
+		}
+	}()
 	if response.StatusCode >= http.StatusBadRequest {
 		c.logger.Error("received an error response from the server", zap.String("method", method), zap.String("uri", uri), zap.Int("status_code", response.StatusCode))
 		return newError(response)
@@ -88,7 +79,7 @@ func (c *httpClient) Request(ctx context.Context, method, uri string, opts ...Re
 	return nil
 }
 
-func (c *httpClient) NewRequest(ctx context.Context, method, uri string, params url.Values, payload interface{}) (*http.Request, error) {
+func (c *httpClient) newRequest(ctx context.Context, method, uri string, params url.Values, payload interface{}) (*http.Request, error) {
 	const nullBody = "null\n"
 	var body bytes.Buffer
 	if payload != nil {
@@ -151,4 +142,23 @@ func (c *httpClient) URI(path ...string) string {
 		)
 	}
 	return baseURL.String() + strings.Join(escapedPath, "/")
+}
+
+type RequestOption func(*requestOptions)
+
+type requestOptions struct {
+	params  url.Values
+	payload interface{}
+}
+
+func WithParams(params url.Values) RequestOption {
+	return func(ro *requestOptions) {
+		ro.params = params
+	}
+}
+
+func WithPayload(payload interface{}) RequestOption {
+	return func(ro *requestOptions) {
+		ro.payload = payload
+	}
 }

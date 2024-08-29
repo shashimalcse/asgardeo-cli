@@ -6,9 +6,9 @@ import (
 )
 
 type API struct {
-	Application *applicationAPI
-	APIResource *apiResourceAPI
-	httpClient  *httpClient
+	Application ApplicationAPI
+	APIResource ResourceAPI
+	httpClient  HTTPClient
 }
 
 func NewAPI(cfg *config.Config, tenantDomain string, logger *zap.Logger) (*API, error) {

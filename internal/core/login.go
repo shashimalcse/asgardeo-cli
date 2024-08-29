@@ -42,7 +42,7 @@ func AuthenticateWithClientCredentials(inputs LoginInputs, cli *CLI) error {
 	return nil
 }
 
-func GetDeviceCode(cli *CLI) (auth.State, error) {
+func GetDeviceCode() (auth.State, error) {
 
 	result, err := auth.GetDeviceCode(http.DefaultClient)
 	if err != nil {
@@ -57,10 +57,15 @@ func GetAccessTokenFromDeviceCode(cli *CLI, state auth.State) error {
 	if err != nil {
 		return err
 	}
-	tenant := config.Tenant{Name: "carbon.super", ClientID: "Wkwv5_jmo2DJVoul3bW7qve46C4a", AccessToken: result.AccessToken}
+	tenant := config.Tenant{Name: "carbon.super",
+		ClientID: "Wkwv5_jmo2DJVoul3bW7qve46C4a"}
 	if err := keyring.StoreAccessToken("carbon.super", result.AccessToken); err != nil {
+		tenant.AccessToken = result.AccessToken
 	}
 	err = cli.Config.AddTenant(tenant)
+	if err != nil {
+		return err
+	}
 	cli.Config.DefaultTenant = tenant.Name
 	return nil
 }

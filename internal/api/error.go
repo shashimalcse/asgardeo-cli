@@ -6,26 +6,26 @@ import (
 	"net/http"
 )
 
-type APIError struct {
+type Error struct {
 	StatusCode  int    `json:"statusCode"`
 	Err         string `json:"error"`
 	Message     string `json:"message"`
 	Description string `json:"description"`
 }
 
-func (m *APIError) Error() string {
+func (m *Error) Error() string {
 	return fmt.Sprintf("%d %s: %s", m.StatusCode, m.Err, m.Message)
 }
 
-func (m *APIError) Status() int {
+func (m *Error) Status() int {
 	return m.StatusCode
 }
 
 func newError(response *http.Response) error {
-	apiError := &APIError{}
+	apiError := &Error{}
 
 	if err := json.NewDecoder(response.Body).Decode(apiError); err != nil {
-		return &APIError{
+		return &Error{
 			StatusCode: response.StatusCode,
 			Err:        http.StatusText(response.StatusCode),
 			Message:    fmt.Errorf("failed to decode json error response payload: %w", err).Error(),

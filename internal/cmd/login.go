@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,7 +24,7 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 			if !inputs.IsLoggingInAsAMachine() {
 				result := runInteractiveLogin(cli)
 				if result.IsError {
-					return fmt.Errorf(result.Message)
+					return errors.New(result.Message)
 				} else {
 					fmt.Println(result.Message)
 					return nil
@@ -32,19 +33,16 @@ func loginCmd(cli *core.CLI) *cobra.Command {
 			return runMachineLogin(cli, inputs, verbose)
 		},
 	}
-
 	cmd.Flags().StringVar(&inputs.ClientID, "client-id", "", "Client ID")
 	cmd.Flags().StringVar(&inputs.ClientSecret, "client-secret", "", "Client Secret")
 	cmd.Flags().StringVar(&inputs.Tenant, "tenant", "", "Tenant")
 	cmd.MarkFlagsRequiredTogether("client-id", "client-secret", "tenant")
-
 	return cmd
 }
 
 func runInteractiveLogin(cli *core.CLI) models.OutputResult {
 	m := interactive.NewLoginModel(cli)
 	p := tea.NewProgram(m, tea.WithAltScreen())
-
 	m1, err := p.Run()
 	if err != nil {
 		return models.OutputResult{
@@ -52,7 +50,7 @@ func runInteractiveLogin(cli *core.CLI) models.OutputResult {
 			IsError: true,
 		}
 	}
-	if m2, ok := m1.(interactive.LoginModel); ok {
+	if m2, ok := m1.(*interactive.LoginModel); ok {
 		return m2.GetOutputValue()
 	}
 	return models.OutputResult{}
@@ -62,7 +60,6 @@ func runMachineLogin(cli *core.CLI, inputs core.LoginInputs, verbose bool) error
 	if verbose {
 		fmt.Println("Attempting machine login...")
 	}
-
 	if err := validateMachineLoginInputs(inputs); err != nil {
 		return err
 	}
@@ -70,7 +67,6 @@ func runMachineLogin(cli *core.CLI, inputs core.LoginInputs, verbose bool) error
 	if err := core.AuthenticateWithClientCredentials(inputs, cli); err != nil {
 		return fmt.Errorf("failed to login as machine: %w", err)
 	}
-
 	if verbose {
 		fmt.Println("Machine login successful")
 	}

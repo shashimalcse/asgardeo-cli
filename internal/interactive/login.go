@@ -15,10 +15,9 @@ import (
 )
 
 var (
-	// Login options
-	AS_A_MACHINE        = "as a machine"
-	AS_A_USER           = "as a user"
-	DeviceFlowSupported = false
+	AsAMachine = "as a machine"
+	AsAUser    = "as a user"
+	//DeviceFlowSupported = false
 )
 
 // AuthenticateState represents the current state of the authentication process
@@ -57,8 +56,8 @@ type LoginModel struct {
 }
 
 // NewLoginModel creates and initializes a new LoginModel
-func NewLoginModel(cli *core.CLI) LoginModel {
-	return LoginModel{
+func NewLoginModel(cli *core.CLI) *LoginModel {
+	return &LoginModel{
 		styles:       tui.DefaultStyles(),
 		spinner:      newSpinner(),
 		loginOptions: newLoginOptions(),
@@ -76,19 +75,19 @@ func newSpinner() spinner.Model {
 
 func newLoginOptions() list.Model {
 	items := []list.Item{
-		tui.NewItem(AS_A_MACHINE, "Authenticates the IS CLI as a machine using client credentials"),
-		tui.NewItem(AS_A_USER, "Authenticates the IS CLI as a user using personal credentials"),
+		tui.NewItem(AsAMachine, "Authenticates the IS CLI as a machine using client credentials"),
+		tui.NewItem(AsAUser, "Authenticates the IS CLI as a user using personal credentials"),
 	}
 	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	l.Title = "How would you like to authenticate?"
 	return l
 }
 
-func (m LoginModel) Init() tea.Cmd {
+func (m *LoginModel) Init() tea.Cmd {
 	return m.spinner.Tick
 }
 
-func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -112,12 +111,12 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m LoginModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *LoginModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.isLoginOptionChosen {
 		i, ok := m.loginOptions.SelectedItem().(tui.Item)
 		if ok {
 			m.loginOptionChosen = i.Title()
-			if m.loginOptionChosen == AS_A_USER && !DeviceFlowSupported {
+			if m.loginOptionChosen == AsAUser {
 				m.state = StateDeviceFlowError
 				m.outputResult = models.OutputResult{
 					Message: "Device flow is not supported yet! Please use client credentials flow.",
@@ -130,7 +129,7 @@ func (m LoginModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	} else {
 		currentQuestion := &m.questions[m.currentQuestionIdx]
-		if m.loginOptionChosen == AS_A_USER {
+		if m.loginOptionChosen == AsAUser {
 			// Handle device flow
 			if m.state == StateDeviceFlowBrowserWait {
 				m.state = StateDeviceFlowBrowserCompleted
@@ -203,7 +202,7 @@ func (m LoginModel) handleKeyEnter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m LoginModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
+func (m *LoginModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.width, m.height = msg.Width, msg.Height
 	h, v := m.styles.List.GetFrameSize()
 	m.loginOptions.SetSize(msg.Width-h, msg.Height-v)
@@ -211,7 +210,7 @@ func (m LoginModel) handleWindowResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cm
 }
 
 func (m *LoginModel) initQuestions() {
-	if m.loginOptionChosen == AS_A_MACHINE {
+	if m.loginOptionChosen == AsAMachine {
 		m.questions = []tui.Question{
 			tui.NewQuestion("tenant", "Tenant Domain", tui.ShortQuestion),
 			tui.NewQuestion("client id", "Client ID", tui.ShortQuestion),
@@ -226,7 +225,7 @@ func (m *LoginModel) initQuestions() {
 }
 
 // View renders the current view of the model
-func (m LoginModel) View() string {
+func (m *LoginModel) View() string {
 	if !m.isLoginOptionChosen {
 		return m.styles.List.Render(m.loginOptions.View())
 	}
@@ -244,7 +243,7 @@ func (m LoginModel) View() string {
 	return m.renderAuthenticationStatus()
 }
 
-func (m LoginModel) renderAuthenticationStatus() string {
+func (m *LoginModel) renderAuthenticationStatus() string {
 	switch m.state {
 	case StateClientCredentialsCompleted:
 		return "Successfully authenticated as a machine"
@@ -277,7 +276,7 @@ func (m *LoginModel) NextQuestion() {
 	}
 }
 
-func (m LoginModel) runLoginAsMachine() error {
+func (m *LoginModel) runLoginAsMachine() error {
 
 	err := core.AuthenticateWithClientCredentials(
 		core.LoginInputs{
@@ -288,16 +287,16 @@ func (m LoginModel) runLoginAsMachine() error {
 	return err
 }
 
-func (m LoginModel) getDeviceCode() (auth.State, error) {
+func (m *LoginModel) getDeviceCode() (auth.State, error) {
 
-	return core.GetDeviceCode(m.cli)
+	return core.GetDeviceCode()
 }
 
-func (m LoginModel) getAccessTokenFromDeviceCode(state auth.State) error {
+func (m *LoginModel) getAccessTokenFromDeviceCode(state auth.State) error {
 
 	return core.GetAccessTokenFromDeviceCode(m.cli, state)
 }
 
-func (m LoginModel) GetOutputValue() models.OutputResult {
+func (m *LoginModel) GetOutputValue() models.OutputResult {
 	return m.outputResult
 }

@@ -1,7 +1,7 @@
 package core
 
 import (
-	"context"
+	"errors"
 	"fmt"
 
 	"github.com/shashimalcse/asgardeo-cli/internal/api"
@@ -26,45 +26,46 @@ func NewCLI(cfg *config.Config, logger *zap.Logger) *CLI {
 }
 
 // SetupWithAuthentication sets up the CLI with authentication
-func (c *CLI) SetupWithAuthentication(ctx context.Context) error {
+func (c *CLI) SetupWithAuthentication() error {
 	if err := c.Config.Validate(); err != nil {
 		return err
 	}
 	if c.Tenant == "" {
 		c.Tenant = c.Config.DefaultTenant
 	}
-	if err := c.checkAndRefreshAuth(ctx); err != nil {
+	if err := c.checkAndRefreshAuth(); err != nil {
 		return fmt.Errorf("authentication check failed: %w", err)
 	}
-	api, err := api.NewAPI(c.Config, c.Tenant, c.Logger)
+	newApi, err := api.NewAPI(c.Config, c.Tenant, c.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
-	c.API = api
+	c.API = newApi
 	return nil
 }
 
-func (c *CLI) checkAndRefreshAuth(ctx context.Context) error {
+func (c *CLI) checkAndRefreshAuth() error {
 	tenant, err := c.Config.GetTenant(c.Tenant)
 	if err != nil {
 		return fmt.Errorf("failed to get tenant: %w", err)
 	}
 	err = tenant.CheckAuthenticationStatus()
-	switch err {
-	case nil:
-		return nil
-	case config.ErrInvalidToken:
+	if err != nil {
+		return fmt.Errorf("failed to check authentication status: %w", err)
+	}
+	switch {
+	case errors.Is(err, config.ErrInvalidToken):
 		c.Logger.Info("Token is invalid, attempting to refresh")
-		if err := c.refreshToken(ctx); err != nil {
+		if err := c.refreshToken(); err != nil {
 			return fmt.Errorf("failed to refresh token: %w", err)
 		}
 		return nil
 	default:
-		return fmt.Errorf("unexpected error checking auth status: %w", err)
+		return nil
 	}
 }
 
-func (c *CLI) refreshToken(ctx context.Context) error {
+func (c *CLI) refreshToken() error {
 	// Implement token refresh logic here
 	// This is a placeholder and should be replaced with actual refresh logic
 	c.Logger.Info("Refreshing token")

@@ -30,19 +30,14 @@ func listApiResourceCmd(cli *core.CLI) *cobra.Command {
 		Args:    cobra.NoArgs,
 		Short:   "List your api resources",
 		Example: `asgardeo apis list
-  asgardeo apis ls`,
+				  asgardeo apis ls`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			m := interactive.NewApiResourceListModel(cli)
 			p := tea.NewProgram(m, tea.WithAltScreen())
-
 			if _, err := p.Run(); err != nil {
 				fmt.Println("Error running program:", err)
 				os.Exit(1)
-			} else {
-
 			}
-
 			return nil
 		},
 	}
@@ -57,18 +52,16 @@ func createAPIResourceCmd(cli *core.CLI) *cobra.Command {
 		Args:    cobra.NoArgs,
 		Short:   "Create an api resource",
 		Example: `asgardeo apis create
-  asgardeo apis c`,
+  				  asgardeo apis c`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			m := interactive.NewAPIResourceCreateModel(cli)
 			p := tea.NewProgram(m, tea.WithAltScreen())
-
 			m1, err := p.Run()
 			if err != nil {
 				fmt.Println("Oh no:", err)
 				os.Exit(1)
 			}
-			if m2, ok := m1.(interactive.APIResourceCreateModel); ok && m2.Value() != "" {
+			if m2, ok := m1.(*interactive.APIResourceCreateModel); ok && m2.Value() != "" {
 				fmt.Print(m2.Value())
 			}
 			return nil
@@ -90,7 +83,7 @@ func deleteAPIResourceCmd(cli *core.CLI) *cobra.Command {
 		Args:    cobra.MaximumNArgs(1),
 		Short:   "Delete api resource",
 		Example: `asgardeo apis delete
-  asgardeo apis rm`,
+                  asgardeo apis rm`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				inputs.ApiId = args[0]
@@ -106,7 +99,6 @@ func deleteAPIResourceCmd(cli *core.CLI) *cobra.Command {
 			return nil
 		},
 	}
-
 	cmd.Flags().StringVar(&inputs.ApiId, "api-id", "", "API Resource ID")
 	return cmd
 }

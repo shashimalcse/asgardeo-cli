@@ -32,21 +32,16 @@ func listApplicationsCmd(cli *core.CLI) *cobra.Command {
 		Example: `asgardeo apps list
   asgardeo apps ls`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			m := interactive.NewApplicationListModel(cli)
 			p := tea.NewProgram(m, tea.WithAltScreen())
 
 			if _, err := p.Run(); err != nil {
 				fmt.Println("Error running program:", err)
 				os.Exit(1)
-			} else {
-
 			}
-
 			return nil
 		},
 	}
-
 	return cmd
 }
 
@@ -59,22 +54,19 @@ func createApplicationsCmd(cli *core.CLI) *cobra.Command {
 		Example: `asgardeo apps create
   asgardeo apps c`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			m := interactive.NewApplicationCreateModel(cli)
 			p := tea.NewProgram(m, tea.WithAltScreen())
-
 			m1, err := p.Run()
 			if err != nil {
 				fmt.Println("Oh no:", err)
 				os.Exit(1)
 			}
-			if m2, ok := m1.(interactive.ApplicationCreateModel); ok && m2.Value() != "" {
+			if m2, ok := m1.(*interactive.ApplicationCreateModel); ok && m2.Value() != "" {
 				fmt.Print(m2.Value())
 			}
 			return nil
 		},
 	}
-
 	return cmd
 }
 
@@ -106,7 +98,6 @@ func deleteApplicationsCmd(cli *core.CLI) *cobra.Command {
 			return nil
 		},
 	}
-
 	cmd.Flags().StringVar(&inputs.ApplicationId, "app-id", "", "Application ID")
 	return cmd
 }

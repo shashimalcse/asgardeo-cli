@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	SYSTEM_SCOPE = "SYSTEM"
+	SystemScope = "SYSTEM"
 )
 
 type Result struct {
@@ -73,7 +73,11 @@ func GetDeviceCode(httpClient *http.Client) (State, error) {
 		return State{}, fmt.Errorf("failed to get device code: %s", resp.Status)
 
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cErr := resp.Body.Close(); cErr != nil {
+			err = fmt.Errorf("failed to close response body: %w", cErr)
+		}
+	}()
 	var result State
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
@@ -109,7 +113,11 @@ func GetAccessTokenFromDeviceCode(httpClient *http.Client, state State) (Result,
 	if resp.StatusCode != http.StatusOK {
 		return Result{}, fmt.Errorf("failed to get access token: %s", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cErr := resp.Body.Close(); cErr != nil {
+			err = fmt.Errorf("failed to close response body: %w", cErr)
+		}
+	}()
 	var result Result
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
@@ -122,7 +130,7 @@ func AuthenticateWithClientCredentials(httpClient *http.Client, args ClientCrede
 
 	data := url.Values{
 		"grant_type": {"client_credentials"},
-		"scope":      {SYSTEM_SCOPE},
+		"scope":      {SystemScope},
 	}
 	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.asgardeo.io/t/%s/oauth2/token", args.Tenant), strings.NewReader(data.Encode()))
 	if err != nil {
@@ -143,7 +151,11 @@ func AuthenticateWithClientCredentials(httpClient *http.Client, args ClientCrede
 		}
 		return Result{}, fmt.Errorf("failed to authenticate")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cErr := resp.Body.Close(); cErr != nil {
+			err = fmt.Errorf("failed to close response body: %w", cErr)
+		}
+	}()
 	var result Result
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
