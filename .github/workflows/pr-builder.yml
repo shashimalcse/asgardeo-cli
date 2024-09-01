@@ -1,0 +1,36 @@
+name: Go CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.22.0 
+
+    - name: Install dependencies
+      run: go mod tidy
+
+    - name: Run Go fmt
+      run: go fmt ./...
+
+    - name: Run golangci-lint
+      run: golangci-lint run
+
+    - name: Run Go vet
+      run: go vet ./...
+
+    - name: Run gosec
+      run: gosec ./...
+
+    - name: Build
+      run: go build ./...
