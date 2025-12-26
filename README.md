@@ -94,6 +94,14 @@ There are two ways to authenticate:
 - `asgardeo apis create` - Create a new API resource
 - `asgardeo apis delete <api-id>` - Delete an API resource
 
+### Organizations
+
+- `asgardeo orgs list` - List your organizations
+- `asgardeo orgs create` - Create a new organization
+- `asgardeo orgs update <org-id>` - Update organization information
+- `asgardeo orgs update-metadata <org-id>` - Update organization metadata
+- `asgardeo orgs delete <org-id>` - Delete an organization
+
 
 ![Screenshot 2024-08-02 at 15 41 42](https://github.com/user-attachments/assets/c76a1b8e-740a-4ad7-a014-1a880b5a4f16)
 ![Screenshot 2024-08-02 at 15 43 22](https://github.com/user-attachments/assets/ebc9f872-65c7-4609-bd7f-926af2bac076)
