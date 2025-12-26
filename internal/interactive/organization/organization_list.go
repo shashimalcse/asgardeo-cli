@@ -31,14 +31,16 @@ type OrganizationListModel struct {
 	state         OrganizationListState
 	stateError    error
 	list          list.Model
+	filter        string
 }
 
-func NewOrganizationListModel(cli *core.CLI) *OrganizationListModel {
+func NewOrganizationListModel(cli *core.CLI, filter string) *OrganizationListModel {
 	return &OrganizationListModel{
 		styles:  tui.DefaultStyles(),
 		spinner: newSpinner(),
 		cli:     cli,
 		state:   StateFetching,
+		filter:  filter,
 	}
 }
 
@@ -52,7 +54,7 @@ func newSpinner() spinner.Model {
 func (m *OrganizationListModel) fetchOrganizations() tea.Msg {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	orgsList, err := m.cli.API.Organization.List(ctx, "")
+	orgsList, err := m.cli.API.Organization.List(ctx, m.filter)
 	if err != nil {
 		return err
 	}

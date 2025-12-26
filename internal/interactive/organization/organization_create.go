@@ -68,6 +68,14 @@ func (m *OrganizationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		return m.handleWindowResize(msg)
+	case string:
+		m.state = StateCreatingCompleted
+		m.output = msg
+		return m, nil
+	case error:
+		m.state = StateCreatingError
+		m.stateError = msg
+		return m, nil
 	}
 
 	var cmd tea.Cmd

@@ -37,7 +37,7 @@ func listOrganizationsCmd(cli *core.CLI) *cobra.Command {
   asgardeo orgs ls
   asgardeo orgs list --filter "name eq MyOrg"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			m := interactive.NewOrganizationListModel(cli)
+			m := interactive.NewOrganizationListModel(cli, filter)
 			p := tea.NewProgram(m, tea.WithAltScreen())
 
 			if _, err := p.Run(); err != nil {
