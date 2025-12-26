@@ -85,8 +85,9 @@ func (m *OrganizationCreateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.questions[m.currentQuestionIndex].Input, cmd = m.questions[m.currentQuestionIndex].Input.Update(msg)
 	}
 
-	m.spinner, cmd = m.spinner.Update(msg)
-	return m, cmd
+	var spinnerCmd tea.Cmd
+	m.spinner, spinnerCmd = m.spinner.Update(msg)
+	return m, tea.Batch(cmd, spinnerCmd)
 }
 
 func (m *OrganizationCreateModel) handleKeyEnter() (tea.Model, tea.Cmd) {

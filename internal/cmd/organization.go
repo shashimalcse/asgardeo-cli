@@ -119,7 +119,6 @@ func updateOrganizationCmd(cli *core.CLI) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&inputs.OrganizationId, "org-id", "", "Organization ID")
 	cmd.Flags().StringVar(&inputs.Name, "name", "", "New organization name")
 	cmd.Flags().StringVar(&inputs.Description, "description", "", "New organization description")
 	return cmd
@@ -169,7 +168,6 @@ func updateOrganizationMetadataCmd(cli *core.CLI) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&inputs.OrganizationId, "org-id", "", "Organization ID")
 	cmd.Flags().StringVar(&inputs.Operation, "operation", "", "Operation (add, replace, remove)")
 	cmd.Flags().StringVar(&inputs.Path, "path", "", "JSON path to update")
 	cmd.Flags().StringVar(&inputs.Value, "value", "", "Value to set")
@@ -205,6 +203,5 @@ func deleteOrganizationCmd(cli *core.CLI) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&inputs.OrganizationId, "org-id", "", "Organization ID")
 	return cmd
 }
