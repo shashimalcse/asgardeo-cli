@@ -95,11 +95,13 @@ func (m *OrganizationCreateModel) handleKeyEnter() (tea.Model, tea.Cmd) {
 	case StateInitiated:
 		currentQuestion := &m.questions[m.currentQuestionIndex]
 		currentQuestion.Answer = currentQuestion.Input.Value()
-		if m.currentQuestionIndex == len(m.questions)-2 {
-			m.state = StateConfirmation
+		// Move to next question or confirmation state
+		if m.currentQuestionIndex < len(m.questions)-2 {
 			m.currentQuestionIndex++
 		} else {
-			m.currentQuestionIndex++
+			// We've finished all non-confirmation questions
+			m.state = StateConfirmation
+			m.currentQuestionIndex = len(m.questions) - 1
 		}
 	case StateConfirmation:
 		answer := strings.ToLower(m.questions[m.currentQuestionIndex].Input.Value())
@@ -157,11 +159,8 @@ func (m *OrganizationCreateModel) View() string {
 func (m *OrganizationCreateModel) renderQuestions() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Creating a new Organization \n\n"))
-	for i, q := range m.questions[:m.currentQuestionIndex] {
+	for _, q := range m.questions[:m.currentQuestionIndex] {
 		sb.WriteString(fmt.Sprintf("%s: %s\n", q.Question, q.Answer))
-		if i == len(m.questions)-1 {
-			sb.WriteString("\n")
-		}
 	}
 	sb.WriteString(m.questions[m.currentQuestionIndex].Input.View())
 	return sb.String()
